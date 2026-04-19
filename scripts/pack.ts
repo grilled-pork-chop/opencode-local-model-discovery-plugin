@@ -54,6 +54,8 @@ mkdirSync(stagingDepsDir, { recursive: true })
 copyFileSync(pluginTarball, join(stagingDir, pluginTarball))
 copyFileSync("opencode.json.example", join(stagingDir, "opencode.json.example"))
 copyFileSync("INSTALL.md", join(stagingDir, "INSTALL.md"))
+copyFileSync("install.sh", join(stagingDir, "install.sh"))
+execSync(`chmod +x "${join(stagingDir, "install.sh")}"`);
 for (const t of depTarballs) {
   copyFileSync(join(depsDir, t), join(stagingDepsDir, t))
 }
@@ -74,3 +76,4 @@ console.log(`  deps`)
 depTarballs.forEach((t) => console.log(`    ${t}`))
 console.log(`  opencode.json.example`)
 console.log(`  INSTALL.md`)
+console.log(`  install.sh`)
