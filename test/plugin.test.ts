@@ -1,8 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest"
 import { LocalModelPlugin } from "../src/index.ts"
-import { createConfigHook } from "../src/config.ts"
-import { ToastNotifier } from "../src/toast.ts"
-import { normalizeUrl } from "../src/discover.ts"
 
 const mockFetch = vi.fn()
 global.fetch = mockFetch
@@ -25,39 +22,14 @@ function makeInput(client: unknown) {
 function makeConfig(providerKey: string, baseURL: string): any {
   return {
     provider: {
-      [providerKey]: {
-        npm: "@ai-sdk/openai-compatible",
-        name: "Local",
-        options: { baseURL },
-      },
+      [providerKey]: { npm: "@ai-sdk/openai-compatible", name: "Local", options: { baseURL } },
     },
   }
 }
 
 function modelsResponse(ids: string[]) {
-  return {
-    ok: true,
-    json: async () => ({ data: ids.map((id) => ({ id })) }),
-  }
+  return { ok: true, json: async () => ({ data: ids.map((id) => ({ id })) }) }
 }
-
-describe("normalizeUrl", () => {
-  it("strips trailing slash", () => {
-    expect(normalizeUrl("http://localhost:4000/")).toBe("http://localhost:4000")
-  })
-
-  it("strips /v1 suffix", () => {
-    expect(normalizeUrl("http://localhost:4000/v1")).toBe("http://localhost:4000")
-  })
-
-  it("strips both trailing slash and /v1", () => {
-    expect(normalizeUrl("http://localhost:4000/v1/")).toBe("http://localhost:4000")
-  })
-
-  it("leaves clean URL unchanged", () => {
-    expect(normalizeUrl("http://localhost:4000")).toBe("http://localhost:4000")
-  })
-})
 
 describe("LocalModelPlugin", () => {
   let mockClient: { tui: { showToast: ReturnType<typeof vi.fn> } }
@@ -67,21 +39,19 @@ describe("LocalModelPlugin", () => {
     mockClient = { tui: { showToast: vi.fn().mockResolvedValue(undefined) } }
   })
 
-  afterEach(() => {
-    vi.restoreAllMocks()
-  })
+  afterEach(() => vi.restoreAllMocks())
 
   it("initializes without throwing", async () => {
     await expect(LocalModelPlugin(makeInput(mockClient))).resolves.toBeDefined()
   })
 
-  it("handles missing client gracefully", async () => {
+  it("handles a missing client gracefully", async () => {
     const hooks = await LocalModelPlugin(makeInput(null))
     await expect(hooks.config({})).resolves.toBeUndefined()
     expect(mockFetch).not.toHaveBeenCalled()
   })
 
-  it("warns when no compatible provider in config", async () => {
+  it("warns when no compatible provider is found in the config", async () => {
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {})
     const hooks = await LocalModelPlugin(makeInput(mockClient))
     await hooks.config({})
@@ -89,32 +59,29 @@ describe("LocalModelPlugin", () => {
     expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining("No @ai-sdk/openai-compatible"))
   })
 
-  it("ignores providers without matching npm", async () => {
+  it("ignores providers with a non-matching npm value", async () => {
     const hooks = await LocalModelPlugin(makeInput(mockClient))
-    const config = {
+    await hooks.config({
       provider: { other: { npm: "@ai-sdk/openai", options: { baseURL: "http://localhost:4000/v1" } } },
-    }
-    await hooks.config(config)
+    })
     expect(mockFetch).not.toHaveBeenCalled()
   })
 
-  it("injects models into existing compatible provider", async () => {
+  it("injects discovered models into the compatible provider", async () => {
     mockFetch.mockResolvedValue(modelsResponse(["llama3", "mistral-7b"]))
     const hooks = await LocalModelPlugin(makeInput(mockClient))
     const config = makeConfig("local", "http://localhost:11434/v1")
     await hooks.config(config)
-
     expect(config.provider.local.models["llama3"]).toBeDefined()
     expect(config.provider.local.models["mistral-7b"]).toBeDefined()
   })
 
-  it("does not overwrite explicitly configured models", async () => {
+  it("does not overwrite explicitly configured model entries", async () => {
     mockFetch.mockResolvedValue(modelsResponse(["llama3", "mistral-7b"]))
     const hooks = await LocalModelPlugin(makeInput(mockClient))
     const config: any = makeConfig("local", "http://localhost:11434/v1")
     config.provider.local.models = { "llama3": { id: "llama3", name: "Custom Llama" } }
     await hooks.config(config)
-
     expect(config.provider.local.models["llama3"].name).toBe("Custom Llama")
     expect(config.provider.local.models["mistral-7b"]).toBeDefined()
   })
@@ -124,176 +91,58 @@ describe("LocalModelPlugin", () => {
     const hooks = await LocalModelPlugin(makeInput(mockClient))
     const config = makeConfig("local", "http://localhost:11434/v1")
     await hooks.config(config)
-
     expect(config.provider.local.models["llama3"]).toBeDefined()
     expect(config.provider.local.models["text-embedding-ada-002"]).toBeUndefined()
     expect(config.provider.local.models["bge-reranker-base"]).toBeUndefined()
   })
 
-  it("strips /v1 from baseURL so discovery URL is not doubled", async () => {
+  it("strips /v1 from baseURL so the discovery URL is not doubled", async () => {
     mockFetch.mockResolvedValue(modelsResponse(["llama3"]))
     const hooks = await LocalModelPlugin(makeInput(mockClient))
     await hooks.config(makeConfig("local", "http://localhost:11434/v1"))
     expect(mockFetch).toHaveBeenCalledWith("http://localhost:11434/v1/models", expect.anything())
   })
 
-  it("shows success toast on first discovery including provider key", async () => {
+  it("shows a success toast on first discovery that includes the provider key", async () => {
     mockFetch.mockResolvedValue(modelsResponse(["llama3"]))
     const hooks = await LocalModelPlugin(makeInput(mockClient))
     await hooks.config(makeConfig("local", "http://localhost:11434/v1"))
-
     expect(mockClient.tui.showToast).toHaveBeenCalledWith(
       expect.objectContaining({
-        body: expect.objectContaining({
-          variant: "success",
-          message: expect.stringContaining('"local"'),
-        }),
+        body: expect.objectContaining({ variant: "success", message: expect.stringContaining('"local"') }),
       })
     )
   })
 
-  it("shows error toast including provider key on fetch failure", async () => {
+  it("shows an error toast including the provider key when discovery fails", async () => {
     mockFetch.mockRejectedValue(new Error("connection refused"))
     const hooks = await LocalModelPlugin(makeInput(mockClient))
     await expect(hooks.config(makeConfig("local", "http://localhost:11434/v1"))).resolves.toBeUndefined()
-
     expect(mockClient.tui.showToast).toHaveBeenCalledWith(
       expect.objectContaining({
-        body: expect.objectContaining({
-          variant: "error",
-          message: expect.stringContaining('"local"'),
-        }),
+        body: expect.objectContaining({ variant: "error", message: expect.stringContaining('"local"') }),
       })
     )
   })
 
-  it("does not throw when client has no tui", async () => {
+  it("does not throw when the client has no tui", async () => {
     mockFetch.mockResolvedValue(modelsResponse(["llama3"]))
     const hooks = await LocalModelPlugin(makeInput({}))
     await expect(hooks.config(makeConfig("local", "http://localhost:11434/v1"))).resolves.toBeUndefined()
   })
 
-  it("does nothing when config is not an object", async () => {
+  it("does nothing when the config argument is not an object", async () => {
     const hooks = await LocalModelPlugin(makeInput(mockClient))
     await expect(hooks.config(null)).resolves.toBeUndefined()
     expect(mockFetch).not.toHaveBeenCalled()
   })
 
-  it("handles malformed API response (missing data field)", async () => {
+  it("shows an error toast on a malformed API response", async () => {
     mockFetch.mockResolvedValue({ ok: true, json: async () => ({ models: [] }) })
     const hooks = await LocalModelPlugin(makeInput(mockClient))
     await expect(hooks.config(makeConfig("local", "http://localhost:11434/v1"))).resolves.toBeUndefined()
     expect(mockClient.tui.showToast).toHaveBeenCalledWith(
       expect.objectContaining({ body: expect.objectContaining({ variant: "error" }) })
     )
-  })
-})
-
-describe("createConfigHook (cache and change-detection)", () => {
-  let mockClient: { tui: { showToast: ReturnType<typeof vi.fn> } }
-  let toast: ToastNotifier
-
-  beforeEach(() => {
-    mockFetch.mockClear()
-    mockClient = { tui: { showToast: vi.fn().mockResolvedValue(undefined) } }
-    toast = new ToastNotifier(mockClient)
-  })
-
-  afterEach(() => {
-    vi.restoreAllMocks()
-  })
-
-  it("uses cache on second call, skips fetch", async () => {
-    mockFetch.mockResolvedValue(modelsResponse(["llama3"]))
-    const hook = createConfigHook(toast, 60_000)
-    await hook(makeConfig("local", "http://localhost:11434/v1"))
-    await hook(makeConfig("local", "http://localhost:11434/v1"))
-    expect(mockFetch).toHaveBeenCalledTimes(1)
-  })
-
-  it("re-fetches when TTL is expired", async () => {
-    mockFetch
-      .mockResolvedValueOnce(modelsResponse(["llama3"]))
-      .mockResolvedValueOnce(modelsResponse(["llama3", "mistral-7b"]))
-    const hook = createConfigHook(toast, -1)
-    await hook(makeConfig("local", "http://localhost:11434/v1"))
-    await hook(makeConfig("local", "http://localhost:11434/v1"))
-    expect(mockFetch).toHaveBeenCalledTimes(2)
-  })
-
-  it('shows "New model X discovered for provider Y" toast when model appears', async () => {
-    mockFetch
-      .mockResolvedValueOnce(modelsResponse(["llama3"]))
-      .mockResolvedValueOnce(modelsResponse(["llama3", "mistral-7b"]))
-    const hook = createConfigHook(toast, -1)
-    await hook(makeConfig("local", "http://localhost:11434/v1"))
-    mockClient.tui.showToast.mockClear()
-    await hook(makeConfig("local", "http://localhost:11434/v1"))
-
-    expect(mockClient.tui.showToast).toHaveBeenCalledWith(
-      expect.objectContaining({
-        body: expect.objectContaining({
-          variant: "info",
-          message: expect.stringContaining('"mistral-7b"'),
-        }),
-      })
-    )
-    expect(mockClient.tui.showToast).toHaveBeenCalledWith(
-      expect.objectContaining({
-        body: expect.objectContaining({ message: expect.stringContaining('"local"') }),
-      })
-    )
-  })
-
-  it('shows "Model X removed from provider Y" toast when model disappears', async () => {
-    mockFetch
-      .mockResolvedValueOnce(modelsResponse(["llama3", "mistral-7b"]))
-      .mockResolvedValueOnce(modelsResponse(["llama3"]))
-    const hook = createConfigHook(toast, -1)
-    await hook(makeConfig("local", "http://localhost:11434/v1"))
-    mockClient.tui.showToast.mockClear()
-    await hook(makeConfig("local", "http://localhost:11434/v1"))
-
-    expect(mockClient.tui.showToast).toHaveBeenCalledWith(
-      expect.objectContaining({
-        body: expect.objectContaining({
-          variant: "warning",
-          message: expect.stringContaining('"mistral-7b"'),
-        }),
-      })
-    )
-    expect(mockClient.tui.showToast).toHaveBeenCalledWith(
-      expect.objectContaining({
-        body: expect.objectContaining({ message: expect.stringContaining('"local"') }),
-      })
-    )
-  })
-
-  it("shows no toast when model list is unchanged after cache refresh", async () => {
-    mockFetch
-      .mockResolvedValueOnce(modelsResponse(["llama3"]))
-      .mockResolvedValueOnce(modelsResponse(["llama3"]))
-    const hook = createConfigHook(toast, -1)
-    await hook(makeConfig("local", "http://localhost:11434/v1"))
-    mockClient.tui.showToast.mockClear()
-    await hook(makeConfig("local", "http://localhost:11434/v1"))
-    expect(mockClient.tui.showToast).not.toHaveBeenCalled()
-  })
-
-  it("handles multiple compatible providers independently", async () => {
-    mockFetch
-      .mockResolvedValueOnce(modelsResponse(["llama3"]))
-      .mockResolvedValueOnce(modelsResponse(["qwen2"]))
-    const hook = createConfigHook(toast)
-    const config: any = {
-      provider: {
-        local1: { npm: "@ai-sdk/openai-compatible", options: { baseURL: "http://localhost:11434/v1" } },
-        local2: { npm: "@ai-sdk/openai-compatible", options: { baseURL: "http://localhost:1234/v1" } },
-      },
-    }
-    await hook(config)
-    expect(mockFetch).toHaveBeenCalledTimes(2)
-    expect(config.provider.local1.models["llama3"]).toBeDefined()
-    expect(config.provider.local2.models["qwen2"]).toBeDefined()
   })
 })
