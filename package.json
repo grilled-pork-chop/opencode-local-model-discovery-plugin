@@ -18,12 +18,9 @@
     "test:run": "vitest run",
     "test:coverage": "vitest run --coverage",
     "test:watch": "vitest watch",
-    "lint": "eslint src --ext .ts",
-    "lint:fix": "eslint src --ext .ts --fix",
-    "build": "npm run typecheck && npm run test:run",
-    "validate": "npm run lint && npm run typecheck && npm run test:run",
+    "build": "bun run typecheck && bun run test:run",
     "pack": "bun scripts/pack.ts",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "bun run build"
   },
   "keywords": [
     "opencode",
@@ -36,7 +33,6 @@
     "openai-compatible",
     "model-discovery"
   ],
-  "author": "",
   "license": "MIT",
   "engines": {
     "opencode": ">=1.4.0"
@@ -51,7 +47,6 @@
   "devDependencies": {
     "@types/node": "^25.6.0",
     "@vitest/coverage-v8": "^4.1.4",
-    "eslint": "^10.2.1",
     "typescript": "^6.0.3",
     "vitest": "^4.1.4"
   }

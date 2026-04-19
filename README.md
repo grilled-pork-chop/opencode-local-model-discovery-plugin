@@ -119,7 +119,7 @@ bun install          # install dependencies
 bun run typecheck    # TypeScript type check
 bun run test:run     # run tests once
 bun run test         # run tests in watch mode
-bun run validate     # lint + typecheck + tests
+bun run build        # typecheck + tests
 ```
 
 ## Packaging
@@ -136,6 +136,7 @@ opencode-local-model-discovery-dist-x.x.x.tar.gz
 ├── deps/
 │   └── opencode-ai-plugin-x.x.x.tgz           ← runtime dependency
 ├── opencode.json.example                        ← configuration template
+├── install.sh                                   ← offline install script
 └── INSTALL.md                                   ← installation guide
 ```
 

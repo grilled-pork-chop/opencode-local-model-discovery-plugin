@@ -13,13 +13,14 @@ export const LocalModelDiscoveryPlugin: Plugin = async (
   const { client } = input
   const opts = (options || {}) as Record<string, unknown>
 
-  const rawUrl = opts["url"]
+  const rawUrl = opts.url
   if (typeof rawUrl !== "string" || !rawUrl) {
     throw new Error(`${PREFIX} "url" option is required (e.g. "http://localhost:4000")`)
   }
   const url = normalizeUrl(rawUrl)
+  const baseURL = `${url}/v1`
 
-  const ttl = typeof opts["ttl"] === "number" ? opts["ttl"] : DEFAULT_TTL
+  const ttl = typeof opts.ttl === "number" ? opts.ttl : DEFAULT_TTL
   const cache = new ModelCache(ttl)
   const toast = new Toast(client)
 
@@ -27,16 +28,16 @@ export const LocalModelDiscoveryPlugin: Plugin = async (
     config: async (config: any) => {
       if (!config || typeof config !== "object") return
 
-      const cached = cache.get(url)
+      const cached = cache.get()
       if (cached) {
-        injectModels(config, url, cached)
+        injectModels(config, baseURL, cached)
         return
       }
 
       try {
         const models = await discoverModels(url)
-        cache.set(url, models)
-        injectModels(config, url, models)
+        cache.set(models)
+        injectModels(config, baseURL, models)
         console.info(`${PREFIX} Discovered ${models.length} model(s) from ${url}`)
         await toast.success(`Discovered ${models.length} model(s) from ${url}`)
       } catch (error) {
@@ -48,14 +49,14 @@ export const LocalModelDiscoveryPlugin: Plugin = async (
   }
 }
 
-function injectModels(config: any, url: string, modelIds: string[]): void {
+function injectModels(config: any, baseURL: string, modelIds: string[]): void {
   if (!config.provider) config.provider = {}
 
   const provider = config.provider["local"] ?? {}
   provider.npm = "@ai-sdk/openai-compatible"
   provider.options = {
     ...provider.options,
-    baseURL: `${url}/v1`,
+    baseURL,
   }
 
   const existing: Record<string, unknown> = provider.models ?? {}
