@@ -122,6 +122,25 @@ bun run test         # run tests in watch mode
 bun run validate     # lint + typecheck + tests
 ```
 
+## Packaging
+
+```bash
+bun run pack
+```
+
+Runs typecheck and tests, then produces a self-contained distribution archive:
+
+```
+opencode-local-model-discovery-dist-x.x.x.tar.gz
+├── opencode-local-model-discovery-x.x.x.tgz   ← the plugin
+├── deps/
+│   └── opencode-ai-plugin-x.x.x.tgz           ← runtime dependency
+├── opencode.json.example                        ← configuration template
+└── INSTALL.md                                   ← installation guide
+```
+
+Hand this archive to anyone who needs to install the plugin — online or offline. See `INSTALL.md` inside the archive for installation steps.
+
 ---
 
 ## License

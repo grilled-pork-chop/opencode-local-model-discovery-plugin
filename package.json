@@ -9,7 +9,8 @@
     ".": "./src/index.ts"
   },
   "files": [
-    "src"
+    "src",
+    "opencode.json.example"
   ],
   "scripts": {
     "typecheck": "tsc --noEmit",
@@ -21,6 +22,7 @@
     "lint:fix": "eslint src --ext .ts --fix",
     "build": "npm run typecheck && npm run test:run",
     "validate": "npm run lint && npm run typecheck && npm run test:run",
+    "pack": "bun scripts/pack.ts",
     "prepublishOnly": "npm run build"
   },
   "keywords": [
