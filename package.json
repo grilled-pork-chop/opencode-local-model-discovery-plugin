@@ -1,8 +1,8 @@
 {
   "$schema": "https://json.schemastore.org/package.json",
-  "name": "opencode-models-discovery",
-  "version": "0.6.1",
-  "description": "OpenCode plugin for auto-discovery of OpenAI-compatible models with dynamic provider configuration",
+  "name": "opencode-local-model-discovery",
+  "version": "1.0.0",
+  "description": "OpenCode plugin for auto-discovery of models from any local OpenAI-compatible API",
   "type": "module",
   "main": "./src/index.ts",
   "exports": {
@@ -21,20 +21,18 @@
     "lint:fix": "eslint src --ext .ts --fix",
     "build": "npm run typecheck && npm run test:run",
     "validate": "npm run lint && npm run typecheck && npm run test:run",
-    "validate:config": "bun scripts/validate-config.ts",
-    "release": "bun scripts/release.ts",
     "prepublishOnly": "npm run build"
   },
   "keywords": [
     "opencode",
-    "openai-compatible",
-    "model-discovery",
     "plugin",
-    "local-llm",
+    "litellm",
+    "vllm",
     "ollama",
     "lmstudio",
-    "lm-studio",
-    "localai"
+    "local-llm",
+    "openai-compatible",
+    "model-discovery"
   ],
   "author": "",
   "license": "MIT",
@@ -43,16 +41,16 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/yuhp/opencode-models-discovery.git"
+    "url": "git+https://github.com/grilled-pork-chop/opencode-local-model-discovery-plugin.git"
   },
   "dependencies": {
-    "@opencode-ai/plugin": "^1.0.166"
+    "@opencode-ai/plugin": "^1.14.18"
   },
   "devDependencies": {
-    "@types/node": "^25.0.3",
-    "@vitest/coverage-v8": "^4.0.16",
-    "eslint": "^9.39.2",
-    "typescript": "^5.9.3",
-    "vitest": "^4.0.16"
+    "@types/node": "^25.6.0",
+    "@vitest/coverage-v8": "^4.1.4",
+    "eslint": "^10.2.1",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.4"
   }
 }
