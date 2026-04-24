@@ -1,4 +1,5 @@
 import { createConfigHook } from "./config"
+import { ModelRefreshMonitor } from "./monitoring/loading-monitor"
 import { ToastNotifier } from "./toast"
 import type { Plugin } from "./types"
 
@@ -8,5 +9,6 @@ export const LocalModelPlugin: Plugin = async ({ client }) => {
     return { config: async () => {} }
   }
   const toast = new ToastNotifier(client)
-  return { config: createConfigHook(toast) }
+  const monitor = new ModelRefreshMonitor()
+  return { config: createConfigHook(toast, monitor) }
 }

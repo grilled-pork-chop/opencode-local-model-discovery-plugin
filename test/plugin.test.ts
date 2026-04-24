@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest"
 import { LocalModelPlugin } from "../src/index.ts"
 import { createConfigHook } from "../src/config.ts"
+import { ModelRefreshMonitor } from "../src/monitoring/loading-monitor.ts"
 import { ToastNotifier } from "../src/toast.ts"
 import { normalizeUrl } from "../src/discover.ts"
 
@@ -189,23 +190,26 @@ describe("LocalModelPlugin", () => {
   })
 })
 
-describe("createConfigHook (cache and change-detection)", () => {
+describe("createConfigHook (cache behaviour)", () => {
   let mockClient: { tui: { showToast: ReturnType<typeof vi.fn> } }
   let toast: ToastNotifier
+  let monitor: ModelRefreshMonitor
 
   beforeEach(() => {
     mockFetch.mockClear()
     mockClient = { tui: { showToast: vi.fn().mockResolvedValue(undefined) } }
     toast = new ToastNotifier(mockClient)
+    monitor = new ModelRefreshMonitor()
   })
 
   afterEach(() => {
+    monitor.cleanup()
     vi.restoreAllMocks()
   })
 
   it("uses cache on second call, skips fetch", async () => {
     mockFetch.mockResolvedValue(modelsResponse(["llama3"]))
-    const hook = createConfigHook(toast, 60_000)
+    const hook = createConfigHook(toast, monitor, 60_000)
     await hook(makeConfig("local", "http://localhost:11434/v1"))
     await hook(makeConfig("local", "http://localhost:11434/v1"))
     expect(mockFetch).toHaveBeenCalledTimes(1)
@@ -214,77 +218,18 @@ describe("createConfigHook (cache and change-detection)", () => {
   it("re-fetches when TTL is expired", async () => {
     mockFetch
       .mockResolvedValueOnce(modelsResponse(["llama3"]))
-      .mockResolvedValueOnce(modelsResponse(["llama3", "mistral-7b"]))
-    const hook = createConfigHook(toast, -1)
+      .mockResolvedValueOnce(modelsResponse(["llama3"]))
+    const hook = createConfigHook(toast, monitor, -1)
     await hook(makeConfig("local", "http://localhost:11434/v1"))
     await hook(makeConfig("local", "http://localhost:11434/v1"))
     expect(mockFetch).toHaveBeenCalledTimes(2)
-  })
-
-  it('shows "New model X discovered for provider Y" toast when model appears', async () => {
-    mockFetch
-      .mockResolvedValueOnce(modelsResponse(["llama3"]))
-      .mockResolvedValueOnce(modelsResponse(["llama3", "mistral-7b"]))
-    const hook = createConfigHook(toast, -1)
-    await hook(makeConfig("local", "http://localhost:11434/v1"))
-    mockClient.tui.showToast.mockClear()
-    await hook(makeConfig("local", "http://localhost:11434/v1"))
-
-    expect(mockClient.tui.showToast).toHaveBeenCalledWith(
-      expect.objectContaining({
-        body: expect.objectContaining({
-          variant: "info",
-          message: expect.stringContaining('"mistral-7b"'),
-        }),
-      })
-    )
-    expect(mockClient.tui.showToast).toHaveBeenCalledWith(
-      expect.objectContaining({
-        body: expect.objectContaining({ message: expect.stringContaining('"local"') }),
-      })
-    )
-  })
-
-  it('shows "Model X removed from provider Y" toast when model disappears', async () => {
-    mockFetch
-      .mockResolvedValueOnce(modelsResponse(["llama3", "mistral-7b"]))
-      .mockResolvedValueOnce(modelsResponse(["llama3"]))
-    const hook = createConfigHook(toast, -1)
-    await hook(makeConfig("local", "http://localhost:11434/v1"))
-    mockClient.tui.showToast.mockClear()
-    await hook(makeConfig("local", "http://localhost:11434/v1"))
-
-    expect(mockClient.tui.showToast).toHaveBeenCalledWith(
-      expect.objectContaining({
-        body: expect.objectContaining({
-          variant: "warning",
-          message: expect.stringContaining('"mistral-7b"'),
-        }),
-      })
-    )
-    expect(mockClient.tui.showToast).toHaveBeenCalledWith(
-      expect.objectContaining({
-        body: expect.objectContaining({ message: expect.stringContaining('"local"') }),
-      })
-    )
-  })
-
-  it("shows no toast when model list is unchanged after cache refresh", async () => {
-    mockFetch
-      .mockResolvedValueOnce(modelsResponse(["llama3"]))
-      .mockResolvedValueOnce(modelsResponse(["llama3"]))
-    const hook = createConfigHook(toast, -1)
-    await hook(makeConfig("local", "http://localhost:11434/v1"))
-    mockClient.tui.showToast.mockClear()
-    await hook(makeConfig("local", "http://localhost:11434/v1"))
-    expect(mockClient.tui.showToast).not.toHaveBeenCalled()
   })
 
   it("handles multiple compatible providers independently", async () => {
     mockFetch
       .mockResolvedValueOnce(modelsResponse(["llama3"]))
       .mockResolvedValueOnce(modelsResponse(["qwen2"]))
-    const hook = createConfigHook(toast)
+    const hook = createConfigHook(toast, monitor)
     const config: any = {
       provider: {
         local1: { npm: "@ai-sdk/openai-compatible", options: { baseURL: "http://localhost:11434/v1" } },
@@ -295,5 +240,29 @@ describe("createConfigHook (cache and change-detection)", () => {
     expect(mockFetch).toHaveBeenCalledTimes(2)
     expect(config.provider.local1.models["llama3"]).toBeDefined()
     expect(config.provider.local2.models["qwen2"]).toBeDefined()
+  })
+
+  it("seeds the monitor with discovered models after first successful fetch", async () => {
+    mockFetch.mockResolvedValue(modelsResponse(["llama3"]))
+    const seedSpy = vi.spyOn(monitor, "seed")
+    const hook = createConfigHook(toast, monitor)
+    await hook(makeConfig("local", "http://localhost:11434/v1"))
+    expect(seedSpy).toHaveBeenCalledWith("http://localhost:11434", ["llama3"])
+  })
+
+  it("starts the monitor after first successful fetch", async () => {
+    mockFetch.mockResolvedValue(modelsResponse(["llama3"]))
+    const startSpy = vi.spyOn(monitor, "start")
+    const hook = createConfigHook(toast, monitor)
+    await hook(makeConfig("local", "http://localhost:11434/v1"))
+    expect(startSpy).toHaveBeenCalledWith("local", "http://localhost:11434", toast)
+  })
+
+  it("does not start the monitor when discovery fails", async () => {
+    mockFetch.mockRejectedValue(new Error("connection refused"))
+    const startSpy = vi.spyOn(monitor, "start")
+    const hook = createConfigHook(toast, monitor)
+    await hook(makeConfig("local", "http://localhost:11434/v1"))
+    expect(startSpy).not.toHaveBeenCalled()
   })
 })

@@ -1,5 +1,6 @@
 import { ModelCache } from "./cache"
 import { discoverModels, normalizeUrl } from "./discover"
+import { ModelRefreshMonitor } from "./monitoring/loading-monitor"
 import type { ToastNotifier } from "./toast"
 
 interface ProviderTarget {
@@ -27,9 +28,8 @@ function findCompatibleProviders(config: unknown): ProviderTarget[] {
   })
 }
 
-export function createConfigHook(toast: ToastNotifier, ttl = DEFAULT_TTL) {
+export function createConfigHook(toast: ToastNotifier, monitor: ModelRefreshMonitor, ttl = DEFAULT_TTL) {
   const caches = new Map<string, ModelCache>()
-  const previousModels = new Map<string, string[]>()
 
   return async (config: unknown): Promise<void> => {
     const targets = findCompatibleProviders(config)
@@ -49,38 +49,17 @@ export function createConfigHook(toast: ToastNotifier, ttl = DEFAULT_TTL) {
         const models = await discoverModels(url)
         cache.set(models)
         injectModels(config, key, models)
+        console.info(`${PREFIX} Discovered ${models.length} model(s) for provider "${key}"`)
         // Fire-and-forget: toast must not block the config hook (OpenCode would deadlock)
-        notifyChanges(models, previousModels.get(url) ?? null, key, toast).catch(() => {})
-        previousModels.set(url, models)
+        toast.success(`Discovered ${models.length} model(s) for provider "${key}"`).catch(() => {})
+        monitor.seed(url, models)
+        monitor.start(key, url, toast)
       } catch (error) {
         const msg = error instanceof Error ? error.message : String(error)
         console.error(`${PREFIX} Discovery failed for ${url}: ${msg}`)
         toast.error(`Model discovery failed for provider "${key}": ${msg}`).catch(() => {})
       }
     }
-  }
-}
-
-async function notifyChanges(
-  models: string[],
-  previous: string[] | null,
-  providerKey: string,
-  toast: ToastNotifier
-): Promise<void> {
-  if (previous === null) {
-    console.info(`${PREFIX} Discovered ${models.length} model(s) for provider "${providerKey}"`)
-    await toast.success(`Discovered ${models.length} model(s) for provider "${providerKey}"`)
-    return
-  }
-  const added = models.filter((m) => !previous.includes(m))
-  const removed = previous.filter((m) => !models.includes(m))
-  for (const id of added) {
-    console.info(`${PREFIX} New model "${id}" for provider "${providerKey}"`)
-    await toast.info(`New model "${id}" discovered for provider "${providerKey}"`)
-  }
-  for (const id of removed) {
-    console.info(`${PREFIX} Model "${id}" removed from provider "${providerKey}"`)
-    await toast.warning(`Model "${id}" removed from provider "${providerKey}"`)
   }
 }
 
