@@ -1,9 +1,14 @@
 const EMBEDDING_PATTERNS = /embed|rerank/i
 
+/** Removes trailing slash and /v1 suffix from a base URL. */
 export function normalizeUrl(url: string): string {
   return url.replace(/\/+$/, "").replace(/\/v1$/, "")
 }
 
+/**
+ * Fetches the model list from a local OpenAI-compatible server.
+ * Strips embedding and reranker models from the result.
+ */
 export async function discoverModels(url: string): Promise<string[]> {
   const response = await fetch(`${url}/v1/models`, {
     signal: AbortSignal.timeout(5000),

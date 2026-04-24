@@ -1,17 +1,17 @@
 # Installation
 
-This archive contains the `opencode-local-model-discovery` plugin and its dependencies.
+This archive contains the `opencode-local-model` plugin and its dependencies.
 No internet connection, npm, or bun required.
 
 ## Contents
 
 ```
-opencode-local-model-discovery-x.x.x.tgz   ← the plugin
+opencode-local-model-x.x.x.tgz          ← the plugin
 deps/
-  opencode-ai-plugin-x.x.x.tgz             ← runtime dependency
-opencode.json.example                        ← configuration template
-install.sh                                   ← installation script
-INSTALL.md                                   ← this file
+  opencode-ai-plugin-x.x.x.tgz          ← runtime dependency
+opencode.json.example                     ← configuration template
+install.sh                                ← installation script
+INSTALL.md                                ← this file
 ```
 
 ## Quick install
@@ -34,24 +34,24 @@ OpenCode automatically loads plugins placed in `~/.config/opencode/plugins/`.
 ```bash
 mkdir -p ~/.config/opencode/plugins
 
-tar -xzf opencode-local-model-discovery-x.x.x.tgz --strip-components=1 \
-    --one-top-level=~/.config/opencode/plugins/opencode-local-model-discovery
+tar -xzf opencode-local-model-x.x.x.tgz --strip-components=1 \
+    --one-top-level=~/.config/opencode/plugins/opencode-local-model
 ```
 
 ### 2. Extract the dependency into the plugin
 
 ```bash
-mkdir -p ~/.config/opencode/plugins/opencode-local-model-discovery/node_modules/@opencode-ai
+mkdir -p ~/.config/opencode/plugins/opencode-local-model/node_modules/@opencode-ai
 
 tar -xzf deps/opencode-ai-plugin-x.x.x.tgz --strip-components=1 \
-    --one-top-level=~/.config/opencode/plugins/opencode-local-model-discovery/node_modules/@opencode-ai/plugin
+    --one-top-level=~/.config/opencode/plugins/opencode-local-model/node_modules/@opencode-ai/plugin
 ```
 
 The final layout should look like:
 
 ```
 ~/.config/opencode/plugins/
-└── opencode-local-model-discovery/
+└── opencode-local-model/
     ├── src/
     ├── node_modules/
     │   └── @opencode-ai/
@@ -59,20 +59,26 @@ The final layout should look like:
     └── package.json
 ```
 
-### 3. Configure OpenCode
+### 3. Configure the URL
 
-Copy `opencode.json.example` to `~/.config/opencode/opencode.json` (global) or to your
-project root as `opencode.json` (project-level), then set the `url` to your local API endpoint:
+**Option A — via `opencode.json`** (project or global):
 
 ```json
 {
   "$schema": "https://opencode.ai/config.json",
   "plugin": [
-    ["opencode-local-model-discovery", {
+    ["opencode-local-model", {
       "url": "http://localhost:11434"
     }]
   ]
 }
+```
+
+**Option B — via environment variable** (useful when the plugin is loaded from the
+plugins folder without an opencode.json entry):
+
+```bash
+export LOCAL_MODEL_URL=http://localhost:11434
 ```
 
 Common endpoints:

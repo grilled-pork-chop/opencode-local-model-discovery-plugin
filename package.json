@@ -1,6 +1,6 @@
 {
   "$schema": "https://json.schemastore.org/package.json",
-  "name": "opencode-local-model-discovery",
+  "name": "opencode-local-model",
   "version": "1.0.0",
   "description": "OpenCode plugin for auto-discovery of models from any local OpenAI-compatible API",
   "type": "module",
@@ -40,9 +40,6 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/grilled-pork-chop/opencode-local-model-discovery-plugin.git"
-  },
-  "dependencies": {
-    "@opencode-ai/plugin": "1.4.8"
   },
   "devDependencies": {
     "@types/node": "^25.6.0",

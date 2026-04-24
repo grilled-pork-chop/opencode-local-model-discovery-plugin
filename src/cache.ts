@@ -1,3 +1,4 @@
+/** In-memory cache for discovered model IDs with a configurable TTL. */
 export class ModelCache {
   private entry: { models: string[]; expiresAt: number } | null = null
 
