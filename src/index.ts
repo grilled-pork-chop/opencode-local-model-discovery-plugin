@@ -1,1 +1,1 @@
-export { LocalModelDiscoveryPlugin } from "./plugin"
+export { LocalModelPlugin } from "./plugin"

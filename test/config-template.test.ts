@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from "vitest"
 import { readFileSync } from "fs"
 import { join } from "path"
-import { LocalModelDiscoveryPlugin } from "../src/index.ts"
+import { LocalModelPlugin } from "../src/index.ts"
 
 const mockFetch = vi.fn()
 global.fetch = mockFetch
@@ -12,7 +12,7 @@ if (!global.AbortSignal.timeout) {
 
 const TEMPLATE_PATH = join(import.meta.dirname, "../opencode.json.example")
 
-function makeInput(client: any) {
+function makeInput(client: unknown) {
   return {
     client,
     project: { id: "test", name: "test", path: "/tmp", worktree: "", time: { created: Date.now() } },
@@ -42,9 +42,9 @@ describe("opencode.json.example template", () => {
     expect(template.plugin).toHaveLength(1)
   })
 
-  it("plugin entry references opencode-local-model-discovery", () => {
+  it("plugin entry references opencode-local-model", () => {
     const [name] = template.plugin[0]
-    expect(name).toBe("opencode-local-model-discovery")
+    expect(name).toBe("opencode-local-model")
   })
 
   it("plugin options include a valid url string", () => {
@@ -68,7 +68,7 @@ describe("opencode.json.example template", () => {
     })
 
     const client = { tui: { showToast: vi.fn().mockResolvedValue(undefined) } }
-    const hooks = await LocalModelDiscoveryPlugin(makeInput(client), opts)
+    const hooks = await LocalModelPlugin(makeInput(client), opts)
     const config: any = {}
     await hooks.config!(config)
 

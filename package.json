@@ -1,6 +1,6 @@
 {
   "$schema": "https://json.schemastore.org/package.json",
-  "name": "opencode-local-model-discovery",
+  "name": "opencode-local-model",
   "version": "1.0.0",
   "description": "OpenCode plugin for auto-discovery of models from any local OpenAI-compatible API",
   "type": "module",

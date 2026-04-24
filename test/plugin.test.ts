@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from "vitest"
-import { LocalModelDiscoveryPlugin } from "../src/index.ts"
+import { LocalModelPlugin } from "../src/index.ts"
 import { normalizeUrl } from "../src/discover.ts"
 
 const mockFetch = vi.fn()
@@ -9,7 +9,7 @@ if (!global.AbortSignal.timeout) {
   global.AbortSignal.timeout = vi.fn(() => new AbortController().signal)
 }
 
-function makeInput(client: any) {
+function makeInput(client: unknown) {
   return {
     client,
     project: { id: "test", name: "test", path: "/tmp", worktree: "", time: { created: Date.now() } },
@@ -45,8 +45,8 @@ describe("normalizeUrl", () => {
   })
 })
 
-describe("LocalModelDiscoveryPlugin", () => {
-  let mockClient: any
+describe("LocalModelPlugin", () => {
+  let mockClient: { tui: { showToast: ReturnType<typeof vi.fn> } }
 
   beforeEach(() => {
     mockFetch.mockClear()
@@ -60,16 +60,16 @@ describe("LocalModelDiscoveryPlugin", () => {
   })
 
   it("throws when url option is missing", async () => {
-    await expect(LocalModelDiscoveryPlugin(makeInput(mockClient), {})).rejects.toThrow('"url" option is required')
+    await expect(LocalModelPlugin(makeInput(mockClient), {})).rejects.toThrow('"url" option is required')
   })
 
   it("throws when url option is not a string", async () => {
-    await expect(LocalModelDiscoveryPlugin(makeInput(mockClient), { url: 42 } as any)).rejects.toThrow('"url" option is required')
+    await expect(LocalModelPlugin(makeInput(mockClient), { url: 42 } as any)).rejects.toThrow('"url" option is required')
   })
 
   it("injects discovered models into local provider", async () => {
     mockFetch.mockResolvedValue(modelsResponse(["meta/llama3-8b", "mistral/mistral-7b"]))
-    const hooks = await LocalModelDiscoveryPlugin(makeInput(mockClient), { url: "http://localhost:4000" })
+    const hooks = await LocalModelPlugin(makeInput(mockClient), { url: "http://localhost:4000" })
     const config: any = {}
     await hooks.config!(config)
 
@@ -80,7 +80,7 @@ describe("LocalModelDiscoveryPlugin", () => {
 
   it("sets provider npm and baseURL", async () => {
     mockFetch.mockResolvedValue(modelsResponse(["llama3"]))
-    const hooks = await LocalModelDiscoveryPlugin(makeInput(mockClient), { url: "http://localhost:4000" })
+    const hooks = await LocalModelPlugin(makeInput(mockClient), { url: "http://localhost:4000" })
     const config: any = {}
     await hooks.config!(config)
 
@@ -90,7 +90,7 @@ describe("LocalModelDiscoveryPlugin", () => {
 
   it("does not overwrite explicitly configured models", async () => {
     mockFetch.mockResolvedValue(modelsResponse(["llama3", "mistral-7b"]))
-    const hooks = await LocalModelDiscoveryPlugin(makeInput(mockClient), { url: "http://localhost:4000" })
+    const hooks = await LocalModelPlugin(makeInput(mockClient), { url: "http://localhost:4000" })
     const config: any = {
       provider: {
         local: { models: { "llama3": { id: "llama3", name: "Custom Llama" } } },
@@ -104,7 +104,7 @@ describe("LocalModelDiscoveryPlugin", () => {
 
   it("filters out embedding models", async () => {
     mockFetch.mockResolvedValue(modelsResponse(["llama3", "text-embedding-ada-002", "bge-reranker-base"]))
-    const hooks = await LocalModelDiscoveryPlugin(makeInput(mockClient), { url: "http://localhost:4000" })
+    const hooks = await LocalModelPlugin(makeInput(mockClient), { url: "http://localhost:4000" })
     const config: any = {}
     await hooks.config!(config)
 
@@ -115,7 +115,7 @@ describe("LocalModelDiscoveryPlugin", () => {
 
   it("uses cache on second call and skips fetch", async () => {
     mockFetch.mockResolvedValue(modelsResponse(["llama3"]))
-    const hooks = await LocalModelDiscoveryPlugin(makeInput(mockClient), { url: "http://localhost:4000", ttl: 60_000 })
+    const hooks = await LocalModelPlugin(makeInput(mockClient), { url: "http://localhost:4000", ttl: 60_000 })
 
     const config1: any = {}
     await hooks.config!(config1)
@@ -127,9 +127,9 @@ describe("LocalModelDiscoveryPlugin", () => {
     expect(config2.provider.local.models["llama3"]).toBeDefined()
   })
 
-  it("shows success toast after discovery", async () => {
+  it("shows success toast on first discovery", async () => {
     mockFetch.mockResolvedValue(modelsResponse(["llama3"]))
-    const hooks = await LocalModelDiscoveryPlugin(makeInput(mockClient), { url: "http://localhost:4000" })
+    const hooks = await LocalModelPlugin(makeInput(mockClient), { url: "http://localhost:4000" })
     await hooks.config!({})
 
     expect(mockClient.tui.showToast).toHaveBeenCalledWith(
@@ -139,7 +139,7 @@ describe("LocalModelDiscoveryPlugin", () => {
 
   it("shows error toast and does not throw on fetch failure", async () => {
     mockFetch.mockRejectedValue(new Error("connection refused"))
-    const hooks = await LocalModelDiscoveryPlugin(makeInput(mockClient), { url: "http://localhost:4000" })
+    const hooks = await LocalModelPlugin(makeInput(mockClient), { url: "http://localhost:4000" })
 
     await expect(hooks.config!({})).resolves.toBeUndefined()
     expect(mockClient.tui.showToast).toHaveBeenCalledWith(
@@ -148,14 +148,14 @@ describe("LocalModelDiscoveryPlugin", () => {
   })
 
   it("does nothing when config is not an object", async () => {
-    const hooks = await LocalModelDiscoveryPlugin(makeInput(mockClient), { url: "http://localhost:4000" })
+    const hooks = await LocalModelPlugin(makeInput(mockClient), { url: "http://localhost:4000" })
     await expect(hooks.config!(null)).resolves.toBeUndefined()
     expect(mockFetch).not.toHaveBeenCalled()
   })
 
   it("normalizes url with trailing slash before fetching", async () => {
     mockFetch.mockResolvedValue(modelsResponse(["llama3"]))
-    const hooks = await LocalModelDiscoveryPlugin(makeInput(mockClient), { url: "http://localhost:4000/" })
+    const hooks = await LocalModelPlugin(makeInput(mockClient), { url: "http://localhost:4000/" })
     const config: any = {}
     await hooks.config!(config)
 
@@ -165,7 +165,7 @@ describe("LocalModelDiscoveryPlugin", () => {
 
   it("normalizes url with /v1 suffix before fetching", async () => {
     mockFetch.mockResolvedValue(modelsResponse(["llama3"]))
-    const hooks = await LocalModelDiscoveryPlugin(makeInput(mockClient), { url: "http://localhost:4000/v1" })
+    const hooks = await LocalModelPlugin(makeInput(mockClient), { url: "http://localhost:4000/v1" })
     const config: any = {}
     await hooks.config!(config)
 
@@ -175,11 +175,64 @@ describe("LocalModelDiscoveryPlugin", () => {
 
   it("handles malformed API response (missing data field)", async () => {
     mockFetch.mockResolvedValue({ ok: true, json: async () => ({ models: [] }) })
-    const hooks = await LocalModelDiscoveryPlugin(makeInput(mockClient), { url: "http://localhost:4000" })
+    const hooks = await LocalModelPlugin(makeInput(mockClient), { url: "http://localhost:4000" })
 
     await expect(hooks.config!({})).resolves.toBeUndefined()
     expect(mockClient.tui.showToast).toHaveBeenCalledWith(
       expect.objectContaining({ body: expect.objectContaining({ variant: "error" }) })
     )
+  })
+
+  it("shows info toast when new models appear after cache refresh", async () => {
+    mockFetch
+      .mockResolvedValueOnce(modelsResponse(["llama3"]))
+      .mockResolvedValueOnce(modelsResponse(["llama3", "mistral-7b"]))
+
+    // ttl: -1 means the cache always expires (expiresAt = Date.now() - 1)
+    const hooks = await LocalModelPlugin(makeInput(mockClient), { url: "http://localhost:4000", ttl: -1 })
+
+    await hooks.config!({})
+    mockClient.tui.showToast.mockClear()
+
+    await hooks.config!({})
+    expect(mockClient.tui.showToast).toHaveBeenCalledWith(
+      expect.objectContaining({ body: expect.objectContaining({ variant: "info" }) })
+    )
+  })
+
+  it("shows warning toast when models are removed after cache refresh", async () => {
+    mockFetch
+      .mockResolvedValueOnce(modelsResponse(["llama3", "mistral-7b"]))
+      .mockResolvedValueOnce(modelsResponse(["llama3"]))
+
+    const hooks = await LocalModelPlugin(makeInput(mockClient), { url: "http://localhost:4000", ttl: -1 })
+
+    await hooks.config!({})
+    mockClient.tui.showToast.mockClear()
+
+    await hooks.config!({})
+    expect(mockClient.tui.showToast).toHaveBeenCalledWith(
+      expect.objectContaining({ body: expect.objectContaining({ variant: "warning" }) })
+    )
+  })
+
+  it("shows no toast when model list is unchanged after cache refresh", async () => {
+    mockFetch
+      .mockResolvedValueOnce(modelsResponse(["llama3"]))
+      .mockResolvedValueOnce(modelsResponse(["llama3"]))
+
+    const hooks = await LocalModelPlugin(makeInput(mockClient), { url: "http://localhost:4000", ttl: -1 })
+
+    await hooks.config!({})
+    mockClient.tui.showToast.mockClear()
+
+    await hooks.config!({})
+    expect(mockClient.tui.showToast).not.toHaveBeenCalled()
+  })
+
+  it("does not toast when client has no tui", async () => {
+    mockFetch.mockResolvedValue(modelsResponse(["llama3"]))
+    const hooks = await LocalModelPlugin(makeInput({}), { url: "http://localhost:4000" })
+    await expect(hooks.config!({})).resolves.toBeUndefined()
   })
 })
