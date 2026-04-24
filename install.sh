@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-PLUGIN_NAME="opencode-local-model-discovery"
+PLUGIN_NAME="opencode-local-model"
 PLUGIN_DIR="${HOME}/.config/opencode/plugins/${PLUGIN_NAME}"
 
 # Resolve paths relative to this script's location

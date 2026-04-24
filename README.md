@@ -1,4 +1,4 @@
-# opencode-local-model-discovery
+# opencode-local-model
 
 OpenCode plugin that automatically discovers models from any local OpenAI-compatible API and injects them into OpenCode as a `local` provider. Point it at Ollama, LM Studio, litellm, LocalAI, or any server that exposes a `/v1/models` endpoint.
 
@@ -9,9 +9,9 @@ OpenCode plugin that automatically discovers models from any local OpenAI-compat
 ### 1. Install the plugin
 
 ```bash
-bun add opencode-local-model-discovery
+bun add opencode-local-model
 # or
-npm install opencode-local-model-discovery
+npm install opencode-local-model
 ```
 
 ### 2. Configure OpenCode
@@ -21,7 +21,7 @@ Add the plugin to your `opencode.json`:
 ```json
 {
   "plugin": [
-    ["opencode-local-model-discovery", {
+    ["opencode-local-model", {
       "url": "http://localhost:11434"
     }]
   ]
@@ -29,6 +29,18 @@ Add the plugin to your `opencode.json`:
 ```
 
 When OpenCode starts, it queries `{url}/v1/models`, discovers your models, and makes them available under the `local` provider in the model picker. Embedding and reranker models are filtered out automatically.
+
+---
+
+## Plugins folder install (no opencode.json entry)
+
+If you drop the plugin directly into `~/.config/opencode/plugins/opencode-local-model/`, set the URL via environment variable instead:
+
+```bash
+export LOCAL_MODEL_URL=http://localhost:11434
+```
+
+The plugin reads `LOCAL_MODEL_URL` when no `url` option is provided in `opencode.json`.
 
 ---
 
@@ -60,7 +72,7 @@ litellm --config litellm_config.yaml --port 4000
 ```json
 {
   "plugin": [
-    ["opencode-local-model-discovery", { "url": "http://localhost:4000" }]
+    ["opencode-local-model", { "url": "http://localhost:4000" }]
   ]
 }
 ```
@@ -73,7 +85,7 @@ litellm --config litellm_config.yaml --port 4000
 2. Embedding and reranker models are filtered out
 3. Discovered models are injected into `config.provider.local` using `@ai-sdk/openai-compatible`
 4. Results are cached for `ttl` milliseconds — subsequent startups within that window skip the network request
-5. A toast notification confirms success or failure
+5. Toast notifications confirm success, failure, and model changes (added/removed)
 
 ---
 
@@ -81,7 +93,7 @@ litellm --config litellm_config.yaml --port 4000
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `url` | `string` | **required** | Base URL of the local API, without trailing slash |
+| `url` | `string` | `LOCAL_MODEL_URL` env var | Base URL of the local API, without trailing slash |
 | `ttl` | `number` | `15000` | Cache duration in milliseconds before models are re-fetched |
 
 ---
@@ -131,13 +143,13 @@ bun run pack
 Runs typecheck and tests, then produces a self-contained distribution archive:
 
 ```
-opencode-local-model-discovery-dist-x.x.x.tar.gz
-├── opencode-local-model-discovery-x.x.x.tgz   ← the plugin
+opencode-local-model-dist-x.x.x.tar.gz
+├── opencode-local-model-x.x.x.tgz          ← the plugin
 ├── deps/
-│   └── opencode-ai-plugin-x.x.x.tgz           ← runtime dependency
-├── opencode.json.example                        ← configuration template
-├── install.sh                                   ← offline install script
-└── INSTALL.md                                   ← installation guide
+│   └── opencode-ai-plugin-x.x.x.tgz        ← runtime dependency
+├── opencode.json.example                     ← configuration template
+├── install.sh                                ← offline install script
+└── INSTALL.md                                ← installation guide
 ```
 
 Hand this archive to anyone who needs to install the plugin — online or offline. See `INSTALL.md` inside the archive for installation steps.
