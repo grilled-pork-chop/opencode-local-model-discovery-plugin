@@ -50,21 +50,37 @@ describe("LocalModelPlugin", () => {
 
   beforeEach(() => {
     mockFetch.mockClear()
+    delete process.env["LOCAL_MODEL_URL"]
     mockClient = {
       tui: { showToast: vi.fn().mockResolvedValue(undefined) },
     }
   })
 
   afterEach(() => {
+    delete process.env["LOCAL_MODEL_URL"]
     vi.restoreAllMocks()
   })
 
-  it("throws when url option is missing", async () => {
-    await expect(LocalModelPlugin(makeInput(mockClient), {})).rejects.toThrow('"url" option is required')
+  it("initializes without throwing when url is missing", async () => {
+    await expect(LocalModelPlugin(makeInput(mockClient), {})).resolves.toBeDefined()
   })
 
-  it("throws when url option is not a string", async () => {
-    await expect(LocalModelPlugin(makeInput(mockClient), { url: 42 } as any)).rejects.toThrow('"url" option is required')
+  it("skips discovery and does not fetch when no url and no env var", async () => {
+    const hooks = await LocalModelPlugin(makeInput(mockClient), {})
+    const config: any = {}
+    await hooks.config!(config)
+    expect(mockFetch).not.toHaveBeenCalled()
+    expect(config.provider).toBeUndefined()
+  })
+
+  it("uses LOCAL_MODEL_URL env var when url option is not provided", async () => {
+    process.env["LOCAL_MODEL_URL"] = "http://localhost:11434"
+    mockFetch.mockResolvedValue(modelsResponse(["llama3"]))
+    const hooks = await LocalModelPlugin(makeInput(mockClient), {})
+    const config: any = {}
+    await hooks.config!(config)
+    expect(mockFetch).toHaveBeenCalledWith("http://localhost:11434/v1/models", expect.anything())
+    expect(config.provider.local.models["llama3"]).toBeDefined()
   })
 
   it("injects discovered models into local provider", async () => {
@@ -137,6 +153,16 @@ describe("LocalModelPlugin", () => {
     )
   })
 
+  it("passes directory in toast query", async () => {
+    mockFetch.mockResolvedValue(modelsResponse(["llama3"]))
+    const hooks = await LocalModelPlugin(makeInput(mockClient), { url: "http://localhost:4000" })
+    await hooks.config!({})
+
+    expect(mockClient.tui.showToast).toHaveBeenCalledWith(
+      expect.objectContaining({ query: { directory: "/tmp" } })
+    )
+  })
+
   it("shows error toast and does not throw on fetch failure", async () => {
     mockFetch.mockRejectedValue(new Error("connection refused"))
     const hooks = await LocalModelPlugin(makeInput(mockClient), { url: "http://localhost:4000" })
@@ -188,7 +214,6 @@ describe("LocalModelPlugin", () => {
       .mockResolvedValueOnce(modelsResponse(["llama3"]))
       .mockResolvedValueOnce(modelsResponse(["llama3", "mistral-7b"]))
 
-    // ttl: -1 means the cache always expires (expiresAt = Date.now() - 1)
     const hooks = await LocalModelPlugin(makeInput(mockClient), { url: "http://localhost:4000", ttl: -1 })
 
     await hooks.config!({})

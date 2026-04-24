@@ -11,22 +11,25 @@ export interface PluginConfig {
 const DEFAULT_TTL = 15_000
 const PREFIX = "[opencode-local-model]"
 
-export function parseConfig(options: Record<string, unknown> | undefined): PluginConfig {
+export function parseConfig(options: Record<string, unknown> | undefined): PluginConfig | null {
   const opts = options ?? {}
-  const rawUrl = opts["url"]
-  if (typeof rawUrl !== "string" || !rawUrl) {
-    throw new Error(`${PREFIX} "url" option is required (e.g. "http://localhost:4000")`)
-  }
+  const rawUrl = (opts["url"] as string | undefined) ?? process.env["LOCAL_MODEL_URL"]
+  if (!rawUrl) return null
   const url = normalizeUrl(rawUrl)
   const ttl = typeof opts["ttl"] === "number" ? opts["ttl"] : DEFAULT_TTL
   return { url, baseURL: `${url}/v1`, ttl }
 }
 
-export function createConfigHook(cfg: PluginConfig, cache: ModelCache, toast: ToastNotifier) {
+export function createConfigHook(cfg: PluginConfig | null, cache: ModelCache | null, toast: ToastNotifier) {
   let previousModels: string[] | null = null
 
   return async (config: unknown): Promise<void> => {
     if (!config || typeof config !== "object") return
+
+    if (!cfg || !cache) {
+      console.warn(`${PREFIX} No URL configured. Set "url" in opencode.json or the LOCAL_MODEL_URL env var.`)
+      return
+    }
 
     const cached = cache.get()
     if (cached) {
@@ -36,14 +39,15 @@ export function createConfigHook(cfg: PluginConfig, cache: ModelCache, toast: To
 
     try {
       const models = await discoverModels(cfg.url)
-      await notifyChanges(models, previousModels, cfg.url, toast)
-      previousModels = models
       cache.set(models)
       injectModels(config, cfg.baseURL, models)
+      // Fire-and-forget: toast must not block the config hook (OpenCode would deadlock)
+      notifyChanges(models, previousModels, cfg.url, toast).catch(() => {})
+      previousModels = models
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error)
       console.error(`${PREFIX} Discovery failed: ${msg}`)
-      await toast.error(`Model discovery failed: ${msg}`)
+      toast.error(`Model discovery failed: ${msg}`).catch(() => {})
     }
   }
 }

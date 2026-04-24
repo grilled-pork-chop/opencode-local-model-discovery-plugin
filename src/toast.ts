@@ -1,5 +1,5 @@
 export class ToastNotifier {
-  constructor(private client: unknown) {}
+  constructor(private client: unknown, private directory: string) {}
 
   async success(message: string): Promise<void> {
     await this.show(message, "success", 3000)
@@ -19,13 +19,11 @@ export class ToastNotifier {
 
   private async show(message: string, variant: string, duration: number): Promise<void> {
     try {
-      const tui = (this.client as Record<string, unknown> | null | undefined)?.["tui"] as
-        | Record<string, unknown>
-        | undefined
-      const showToast = tui?.["showToast"]
-      if (typeof showToast === "function") {
-        await showToast.call(tui, { body: { message, variant, duration } })
-      }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (this.client as any)?.tui?.showToast?.({
+        body: { message, variant, duration },
+        query: { directory: this.directory },
+      })
     } catch {
       // non-critical
     }
