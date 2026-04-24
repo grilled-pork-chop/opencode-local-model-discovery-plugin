@@ -1,5 +1,6 @@
 export class ToastNotifier {
-  constructor(private client: unknown, private directory: string) {}
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  constructor(private client: any) {}
 
   async success(message: string): Promise<void> {
     await this.show(message, "success", 3000)
@@ -19,11 +20,7 @@ export class ToastNotifier {
 
   private async show(message: string, variant: string, duration: number): Promise<void> {
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (this.client as any)?.tui?.showToast?.({
-        body: { message, variant, duration },
-        query: { directory: this.directory },
-      })
+      await this.client?.tui?.showToast?.({ body: { message, variant, duration } })
     } catch {
       // non-critical
     }

@@ -1,14 +1,12 @@
-import type { Plugin, PluginInput, PluginOptions } from "@opencode-ai/plugin"
-import { ModelCache } from "./cache"
-import { createConfigHook, parseConfig } from "./config"
+import { createConfigHook } from "./config"
 import { ToastNotifier } from "./toast"
+import type { Plugin } from "./types"
 
-export const LocalModelPlugin: Plugin = async (input: PluginInput, options?: PluginOptions) => {
-  const cfg = parseConfig(options as Record<string, unknown> | undefined)
-  const cache = cfg ? new ModelCache(cfg.ttl) : null
-  const toast = new ToastNotifier(input.client, input.directory)
-
-  return {
-    config: createConfigHook(cfg, cache, toast),
+export const LocalModelPlugin: Plugin = async ({ client }) => {
+  if (!client) {
+    console.error("[opencode-local-model] No client provided")
+    return { config: async () => {} }
   }
+  const toast = new ToastNotifier(client)
+  return { config: createConfigHook(toast) }
 }

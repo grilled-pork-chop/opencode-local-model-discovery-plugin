@@ -41,9 +41,6 @@
     "type": "git",
     "url": "git+https://github.com/grilled-pork-chop/opencode-local-model-discovery-plugin.git"
   },
-  "dependencies": {
-    "@opencode-ai/plugin": "1.4.8"
-  },
   "devDependencies": {
     "@types/node": "^25.6.0",
     "@vitest/coverage-v8": "^4.1.4",

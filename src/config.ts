@@ -2,52 +2,61 @@ import { ModelCache } from "./cache"
 import { discoverModels, normalizeUrl } from "./discover"
 import type { ToastNotifier } from "./toast"
 
-export interface PluginConfig {
+interface ProviderTarget {
+  /** The provider key in opencode config (e.g. "local") */
+  key: string
+  /** Normalized base URL without /v1 suffix (e.g. "http://localhost:11434") */
   url: string
-  baseURL: string
-  ttl: number
 }
 
 const DEFAULT_TTL = 15_000
 const PREFIX = "[opencode-local-model]"
 
-export function parseConfig(options: Record<string, unknown> | undefined): PluginConfig | null {
-  const opts = options ?? {}
-  const rawUrl = (opts["url"] as string | undefined) ?? process.env["LOCAL_MODEL_URL"]
-  if (!rawUrl) return null
-  const url = normalizeUrl(rawUrl)
-  const ttl = typeof opts["ttl"] === "number" ? opts["ttl"] : DEFAULT_TTL
-  return { url, baseURL: `${url}/v1`, ttl }
+function findCompatibleProviders(config: unknown): ProviderTarget[] {
+  if (!config || typeof config !== "object") return []
+  const providers = (config as Record<string, unknown>)["provider"]
+  if (!providers || typeof providers !== "object") return []
+  return Object.entries(providers as Record<string, unknown>).flatMap(([key, value]) => {
+    if (!value || typeof value !== "object") return []
+    const p = value as Record<string, unknown>
+    if (p["npm"] !== "@ai-sdk/openai-compatible") return []
+    const opts = p["options"] as Record<string, unknown> | undefined
+    const baseURL = opts?.["baseURL"]
+    if (typeof baseURL !== "string" || !baseURL) return []
+    return [{ key, url: normalizeUrl(baseURL) }]
+  })
 }
 
-export function createConfigHook(cfg: PluginConfig | null, cache: ModelCache | null, toast: ToastNotifier) {
-  let previousModels: string[] | null = null
+export function createConfigHook(toast: ToastNotifier, ttl = DEFAULT_TTL) {
+  const caches = new Map<string, ModelCache>()
+  const previousModels = new Map<string, string[]>()
 
   return async (config: unknown): Promise<void> => {
-    if (!config || typeof config !== "object") return
-
-    if (!cfg || !cache) {
-      console.warn(`${PREFIX} No URL configured. Set "url" in opencode.json or the LOCAL_MODEL_URL env var.`)
+    const targets = findCompatibleProviders(config)
+    if (targets.length === 0) {
+      console.warn(`${PREFIX} No @ai-sdk/openai-compatible provider found in config`)
       return
     }
-
-    const cached = cache.get()
-    if (cached) {
-      injectModels(config, cfg.baseURL, cached)
-      return
-    }
-
-    try {
-      const models = await discoverModels(cfg.url)
-      cache.set(models)
-      injectModels(config, cfg.baseURL, models)
-      // Fire-and-forget: toast must not block the config hook (OpenCode would deadlock)
-      notifyChanges(models, previousModels, cfg.url, toast).catch(() => {})
-      previousModels = models
-    } catch (error) {
-      const msg = error instanceof Error ? error.message : String(error)
-      console.error(`${PREFIX} Discovery failed: ${msg}`)
-      toast.error(`Model discovery failed: ${msg}`).catch(() => {})
+    for (const { key, url } of targets) {
+      if (!caches.has(url)) caches.set(url, new ModelCache(ttl))
+      const cache = caches.get(url)!
+      const cached = cache.get()
+      if (cached) {
+        injectModels(config, key, cached)
+        continue
+      }
+      try {
+        const models = await discoverModels(url)
+        cache.set(models)
+        injectModels(config, key, models)
+        // Fire-and-forget: toast must not block the config hook (OpenCode would deadlock)
+        notifyChanges(models, previousModels.get(url) ?? null, key, toast).catch(() => {})
+        previousModels.set(url, models)
+      } catch (error) {
+        const msg = error instanceof Error ? error.message : String(error)
+        console.error(`${PREFIX} Discovery failed for ${url}: ${msg}`)
+        toast.error(`Model discovery failed for provider "${key}": ${msg}`).catch(() => {})
+      }
     }
   }
 }
@@ -55,51 +64,35 @@ export function createConfigHook(cfg: PluginConfig | null, cache: ModelCache | n
 async function notifyChanges(
   models: string[],
   previous: string[] | null,
-  url: string,
+  providerKey: string,
   toast: ToastNotifier
 ): Promise<void> {
   if (previous === null) {
-    console.info(`${PREFIX} Discovered ${models.length} model(s) from ${url}`)
-    await toast.success(`Discovered ${models.length} model(s) from ${url}`)
+    console.info(`${PREFIX} Discovered ${models.length} model(s) for provider "${providerKey}"`)
+    await toast.success(`Discovered ${models.length} model(s) for provider "${providerKey}"`)
     return
   }
-
   const added = models.filter((m) => !previous.includes(m))
   const removed = previous.filter((m) => !models.includes(m))
-
-  if (added.length > 0) {
-    console.info(`${PREFIX} ${added.length} new model(s): ${added.join(", ")}`)
-    await toast.info(`${added.length} new model(s) available: ${added.join(", ")}`)
+  for (const id of added) {
+    console.info(`${PREFIX} New model "${id}" for provider "${providerKey}"`)
+    await toast.info(`New model "${id}" discovered for provider "${providerKey}"`)
   }
-  if (removed.length > 0) {
-    console.info(`${PREFIX} ${removed.length} model(s) removed: ${removed.join(", ")}`)
-    await toast.warning(`${removed.length} model(s) removed: ${removed.join(", ")}`)
+  for (const id of removed) {
+    console.info(`${PREFIX} Model "${id}" removed from provider "${providerKey}"`)
+    await toast.warning(`Model "${id}" removed from provider "${providerKey}"`)
   }
 }
 
-function injectModels(config: object, baseURL: string, modelIds: string[]): void {
-  const cfg = config as Record<string, unknown>
-  if (!cfg["provider"]) cfg["provider"] = {}
-
-  const providers = cfg["provider"] as Record<string, unknown>
-  const provider = (providers["local"] as Record<string, unknown>) ?? {}
-
-  provider["npm"] = "@ai-sdk/openai-compatible"
-  provider["options"] = { ...(provider["options"] as object | undefined), baseURL }
-
+function injectModels(config: unknown, providerKey: string, modelIds: string[]): void {
+  const providers = (config as Record<string, unknown>)["provider"] as Record<string, unknown>
+  const provider = providers[providerKey] as Record<string, unknown>
   const existing = (provider["models"] as Record<string, unknown>) ?? {}
   const injected: Record<string, unknown> = {}
-
   for (const id of modelIds) {
     if (!existing[id]) {
-      injected[id] = {
-        id,
-        name: id,
-        modalities: { input: ["text", "image"], output: ["text"] },
-      }
+      injected[id] = { id, name: id, modalities: { input: ["text", "image"], output: ["text"] } }
     }
   }
-
   provider["models"] = { ...existing, ...injected }
-  providers["local"] = provider
 }
