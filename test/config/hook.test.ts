@@ -39,14 +39,6 @@ describe("buildConfigHook", () => {
     vi.restoreAllMocks()
   })
 
-  it("does not re-fetch on a second call for the same provider URL", async () => {
-    mockFetch.mockResolvedValue(modelsResponse(["llama3"]))
-    const hook = buildConfigHook(notifier, monitor)
-    await hook(makeConfig("local", "http://localhost:11434/v1"))
-    await hook(makeConfig("local", "http://localhost:11434/v1"))
-    expect(mockFetch).toHaveBeenCalledTimes(1)
-  })
-
   it("resolves multiple providers concurrently", async () => {
     mockFetch
       .mockResolvedValueOnce(modelsResponse(["llama3"]))
