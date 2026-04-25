@@ -39,22 +39,12 @@ describe("buildConfigHook", () => {
     vi.restoreAllMocks()
   })
 
-  it("serves from cache on second call and skips fetch", async () => {
+  it("does not re-fetch on a second call for the same provider URL", async () => {
     mockFetch.mockResolvedValue(modelsResponse(["llama3"]))
-    const hook = buildConfigHook(notifier, monitor, 60_000)
+    const hook = buildConfigHook(notifier, monitor)
     await hook(makeConfig("local", "http://localhost:11434/v1"))
     await hook(makeConfig("local", "http://localhost:11434/v1"))
     expect(mockFetch).toHaveBeenCalledTimes(1)
-  })
-
-  it("re-fetches after the TTL expires", async () => {
-    mockFetch
-      .mockResolvedValueOnce(modelsResponse(["llama3"]))
-      .mockResolvedValueOnce(modelsResponse(["llama3"]))
-    const hook = buildConfigHook(notifier, monitor, -1)
-    await hook(makeConfig("local", "http://localhost:11434/v1"))
-    await hook(makeConfig("local", "http://localhost:11434/v1"))
-    expect(mockFetch).toHaveBeenCalledTimes(2)
   })
 
   it("resolves multiple providers concurrently", async () => {
