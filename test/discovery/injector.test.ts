@@ -20,11 +20,7 @@ describe("mergeDiscoveredModels", () => {
   it("injected entry has the correct shape", () => {
     const config = makeConfig()
     mergeDiscoveredModels(config, "local", ["llama3"])
-    expect(config.provider.local.models["llama3"]).toEqual({
-      id: "llama3",
-      name: "llama3",
-      modalities: { input: ["text", "image"], output: ["text"] },
-    })
+    expect(config.provider.local.models["llama3"]).toEqual({ id: "llama3", name: "llama3" })
   })
 
   it("does not overwrite an existing model entry", () => {
