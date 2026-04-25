@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest"
-import { ModelRefreshMonitor } from "../../src/monitoring/loading-monitor.ts"
-import { ToastNotifier } from "../../src/toast.ts"
+import { ModelRefreshMonitor } from "../../src/monitoring/refresh-monitor.ts"
+import { Notifier } from "../../src/notification/notifier.ts"
 
 const mockFetch = vi.fn()
 global.fetch = mockFetch
@@ -15,14 +15,14 @@ function modelsResponse(ids: string[]) {
 
 describe("ModelRefreshMonitor", () => {
   let mockClient: { tui: { showToast: ReturnType<typeof vi.fn> } }
-  let toast: ToastNotifier
+  let notifier: Notifier
   let monitor: ModelRefreshMonitor
 
   beforeEach(() => {
     vi.useFakeTimers()
     mockFetch.mockClear()
     mockClient = { tui: { showToast: vi.fn().mockResolvedValue(undefined) } }
-    toast = new ToastNotifier(mockClient)
+    notifier = new Notifier(mockClient)
     monitor = new ModelRefreshMonitor()
   })
 
@@ -32,19 +32,19 @@ describe("ModelRefreshMonitor", () => {
     vi.restoreAllMocks()
   })
 
-  it("shows no toast on first poll when seeded with matching models", async () => {
+  it("shows no toast on first poll when seeded with the same models", async () => {
     monitor.seed("http://localhost:11434", ["llama3"])
     mockFetch.mockResolvedValue(modelsResponse(["llama3"]))
-    monitor.start("local", "http://localhost:11434", toast)
+    monitor.start("local", "http://localhost:11434", notifier)
 
     await vi.advanceTimersByTimeAsync(15_000)
     expect(mockClient.tui.showToast).not.toHaveBeenCalled()
   })
 
-  it('shows info toast "New model X discovered for provider Y" when model appears', async () => {
+  it('fires an info toast "New model X discovered for provider Y" when a model appears', async () => {
     monitor.seed("http://localhost:11434", ["llama3"])
     mockFetch.mockResolvedValue(modelsResponse(["llama3", "mistral-7b"]))
-    monitor.start("local", "http://localhost:11434", toast)
+    monitor.start("local", "http://localhost:11434", notifier)
 
     await vi.advanceTimersByTimeAsync(15_000)
     expect(mockClient.tui.showToast).toHaveBeenCalledWith(
@@ -62,10 +62,10 @@ describe("ModelRefreshMonitor", () => {
     )
   })
 
-  it('shows warning toast "Model X removed from provider Y" when model disappears', async () => {
+  it('fires a warning toast "Model X removed from provider Y" when a model disappears', async () => {
     monitor.seed("http://localhost:11434", ["llama3", "mistral-7b"])
     mockFetch.mockResolvedValue(modelsResponse(["llama3"]))
-    monitor.start("local", "http://localhost:11434", toast)
+    monitor.start("local", "http://localhost:11434", notifier)
 
     await vi.advanceTimersByTimeAsync(15_000)
     expect(mockClient.tui.showToast).toHaveBeenCalledWith(
@@ -83,10 +83,10 @@ describe("ModelRefreshMonitor", () => {
     )
   })
 
-  it("shows no toast when model list is unchanged", async () => {
+  it("fires no toast when the model list is unchanged", async () => {
     monitor.seed("http://localhost:11434", ["llama3"])
     mockFetch.mockResolvedValue(modelsResponse(["llama3"]))
-    monitor.start("local", "http://localhost:11434", toast)
+    monitor.start("local", "http://localhost:11434", notifier)
 
     await vi.advanceTimersByTimeAsync(15_000)
     expect(mockClient.tui.showToast).not.toHaveBeenCalled()
@@ -95,17 +95,17 @@ describe("ModelRefreshMonitor", () => {
   it("is silent on fetch errors during polling", async () => {
     monitor.seed("http://localhost:11434", ["llama3"])
     mockFetch.mockRejectedValue(new Error("network error"))
-    monitor.start("local", "http://localhost:11434", toast)
+    monitor.start("local", "http://localhost:11434", notifier)
 
     await vi.advanceTimersByTimeAsync(15_000)
     expect(mockClient.tui.showToast).not.toHaveBeenCalled()
   })
 
-  it("start is idempotent — second call for same URL does not create a duplicate interval", async () => {
+  it("start is idempotent — a second call for the same URL does not create a duplicate interval", async () => {
     monitor.seed("http://localhost:11434", ["llama3"])
     mockFetch.mockResolvedValue(modelsResponse(["llama3", "mistral-7b"]))
-    monitor.start("local", "http://localhost:11434", toast)
-    monitor.start("local", "http://localhost:11434", toast)
+    monitor.start("local", "http://localhost:11434", notifier)
+    monitor.start("local", "http://localhost:11434", notifier)
 
     await vi.advanceTimersByTimeAsync(15_000)
     expect(mockFetch).toHaveBeenCalledTimes(1)
@@ -114,7 +114,7 @@ describe("ModelRefreshMonitor", () => {
   it("cleanup stops all polling", async () => {
     monitor.seed("http://localhost:11434", ["llama3"])
     mockFetch.mockResolvedValue(modelsResponse(["llama3", "mistral-7b"]))
-    monitor.start("local", "http://localhost:11434", toast)
+    monitor.start("local", "http://localhost:11434", notifier)
     monitor.cleanup()
 
     await vi.advanceTimersByTimeAsync(15_000)
@@ -123,12 +123,12 @@ describe("ModelRefreshMonitor", () => {
 
   it("tracks each provider URL independently", async () => {
     monitor.seed("http://localhost:11434", ["llama3"])
-    monitor.seed("http://localhost:1234", ["qwen2"])
+    monitor.seed("http://localhost:1234",  ["qwen2"])
     mockFetch
       .mockResolvedValueOnce(modelsResponse(["llama3", "phi-4"]))
       .mockResolvedValueOnce(modelsResponse(["qwen2"]))
-    monitor.start("local1", "http://localhost:11434", toast)
-    monitor.start("local2", "http://localhost:1234", toast)
+    monitor.start("local1", "http://localhost:11434", notifier)
+    monitor.start("local2", "http://localhost:1234",  notifier)
 
     await vi.advanceTimersByTimeAsync(15_000)
     expect(mockFetch).toHaveBeenCalledTimes(2)
@@ -145,7 +145,7 @@ describe("ModelRefreshMonitor", () => {
     mockFetch
       .mockResolvedValueOnce(modelsResponse(["llama3", "mistral-7b"]))
       .mockResolvedValueOnce(modelsResponse(["mistral-7b", "phi-4"]))
-    monitor.start("local", "http://localhost:11434", toast)
+    monitor.start("local", "http://localhost:11434", notifier)
 
     await vi.advanceTimersByTimeAsync(15_000)
     mockClient.tui.showToast.mockClear()
@@ -163,11 +163,11 @@ describe("ModelRefreshMonitor", () => {
     )
   })
 
-  it("stores unseeded first-poll result without toasting, then diffs from second poll", async () => {
+  it("stores an unseeded first-poll result without toasting, then diffs from the second poll", async () => {
     mockFetch
       .mockResolvedValueOnce(modelsResponse(["llama3"]))
       .mockResolvedValueOnce(modelsResponse(["llama3", "mistral-7b"]))
-    monitor.start("local", "http://localhost:11434", toast)
+    monitor.start("local", "http://localhost:11434", notifier)
 
     await vi.advanceTimersByTimeAsync(15_000)
     expect(mockClient.tui.showToast).not.toHaveBeenCalled()
