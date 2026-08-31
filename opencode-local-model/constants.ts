@@ -32,5 +32,5 @@ export const NOTIFIER_TIMEOUT_MS = 1_000
  * @returns The simplified display name.
  */
 export function simplifyModelId(id: string): string {
-  return id.replace(/\/+$/, '').split('/').pop() ?? id
+  return id.replace(/\/+$/, "").split("/").pop() ?? id
 }

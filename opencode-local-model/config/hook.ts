@@ -2,9 +2,9 @@ import { OPENAI_COMPATIBLE_NPM, simplifyModelId } from "../constants"
 import { fetchModels } from "../discovery/client"
 import { applyDiscoveredModels } from "../discovery/injector"
 import { extractCompatibleProviders } from "../discovery/scanner"
-import { ModelRefreshMonitor } from "../monitoring/refresh-monitor"
-import { Notifier } from "../notification/notifier"
-import type { ConfigHook, ModelEntry, OpenCodeConfig } from "../types"
+import type { ModelRefreshMonitor } from "../monitoring/refresh-monitor"
+import type { Notifier } from "../notification/notifier"
+import type { ConfigHook, OpenCodeConfig } from "../types"
 
 /**
  * Builds the {@link ConfigHook} called by OpenCode once at startup.
@@ -40,7 +40,9 @@ export function buildConfigHook(notifier: Notifier, monitor: ModelRefreshMonitor
           if (!config.model) {
             config.model = `${key}/${models[0]}`
           }
-          notifier.success(`Discovered ${models.length} model(s) for provider "${key}":\n${formatModelList(models)}`)
+          notifier.success(
+            `Discovered ${models.length} model(s) for provider "${key}":\n${formatModelList(models)}`
+          )
         } catch (error) {
           monitor.seed(baseUrl, [])
           const msg = error instanceof Error ? error.message : String(error)
@@ -61,5 +63,5 @@ export function buildConfigHook(notifier: Notifier, monitor: ModelRefreshMonitor
  * @returns A newline-separated string where each model is prefixed with `•`.
  */
 function formatModelList(modelsIds: string[]): string {
-  return modelsIds.map(m => `  • ${simplifyModelId(m)}`).join("\n")
+  return modelsIds.map((m) => `  • ${simplifyModelId(m)}`).join("\n")
 }

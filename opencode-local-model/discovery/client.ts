@@ -39,7 +39,5 @@ export async function fetchModels(baseUrl: string): Promise<string[]> {
     throw new Error("unexpected /v1/models response: missing data array")
   }
 
-  return (body.data as { id?: unknown }[])
-    .map((m) => String(m.id ?? ""))
-    .filter((id) => id)
+  return (body.data as { id?: unknown }[]).map((m) => String(m.id ?? "")).filter((id) => id)
 }

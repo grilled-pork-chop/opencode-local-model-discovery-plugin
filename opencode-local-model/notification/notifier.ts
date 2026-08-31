@@ -4,9 +4,9 @@ import type { OpenCodeClient } from "../types"
 /** Display duration in milliseconds for each notification severity level. */
 const DURATION = {
   success: 30_000,
-  info:    30_000,
+  info: 30_000,
   warning: 60_000,
-  error:   60_000,
+  error: 60_000,
 } as const
 
 type ToastVariant = keyof typeof DURATION
@@ -18,7 +18,6 @@ type ToastVariant = keyof typeof DURATION
  * the config hook or background monitor.
  */
 export class Notifier {
-
   /**
    * @param client - The OpenCode client object supplied by {@link PluginInput}.
    */
@@ -28,26 +27,33 @@ export class Notifier {
    * Shows a success toast.
    * @param message - Human-readable notification body.
    */
-  success(message: string): void { this.show("success", message) }
+  success(message: string): void {
+    this.show("success", message)
+  }
 
   /**
    * Shows an error toast.
    * @param message - Human-readable notification body.
    */
-  error(message: string): void   { this.show("error",   message) }
+  error(message: string): void {
+    this.show("error", message)
+  }
 
   /**
    * Shows a warning toast.
    * @param message - Human-readable notification body.
    */
-  warning(message: string): void { this.show("warning", message) }
+  warning(message: string): void {
+    this.show("warning", message)
+  }
 
   /**
    * Shows an informational toast.
    * @param message - Human-readable notification body.
    */
-  info(message: string): void    { this.show("info",    message) }
-
+  info(message: string): void {
+    this.show("info", message)
+  }
 
   /**
    * Dispatches a toast via `client.tui.showToast`.

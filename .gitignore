@@ -1,0 +1,17 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+*.tsbuildinfo
+
+# Logs
+*.log
+
+# Editor / OS / local agent state
+.DS_Store
+*.swp
+*.swo
+.claude/
+.idea/
+.vscode/

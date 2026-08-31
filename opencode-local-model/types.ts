@@ -1,21 +1,29 @@
 /** Minimal type for the OpenCode TUI client passed to plugins. */
 export interface OpenCodeClient {
   tui?: {
-    showToast?(opts: { body: { message: string; variant: string; duration: number } }): Promise<void>
+    showToast?(opts: {
+      body: { message: string; variant: string; duration: number }
+    }): Promise<void>
   }
 }
 /** Single model entry in a provider `models` map. */
-export type ModelEntry = { name: string, limit: { id: string; name: string; limit: { context: number; output: number } } }
+export type ModelEntry = {
+  name: string
+  limit: { id: string; name: string; limit: { context: number; output: number } }
+}
 
 /** Minimal shape of the OpenCode configuration object. */
 export interface OpenCodeConfig {
-  provider?: Record<string, {
-    npm?: string
-    name?: string
-    options?: Record<string, unknown>
-    models?: Record<string, ModelEntry>
-    [key: string]: unknown
-  }>
+  provider?: Record<
+    string,
+    {
+      npm?: string
+      name?: string
+      options?: Record<string, unknown>
+      models?: Record<string, ModelEntry>
+      [key: string]: unknown
+    }
+  >
   [key: string]: unknown
 }
 
@@ -25,7 +33,6 @@ export interface PluginInput {
   directory?: string
   [key: string]: unknown
 }
-
 
 /**
  * Async callback invoked by OpenCode each time it loads its configuration.

@@ -1,5 +1,5 @@
-import { fetchModels } from "../discovery/client"
 import { POLL_INTERVAL_MS, simplifyModelId } from "../constants"
+import { fetchModels } from "../discovery/client"
 import type { Notifier } from "../notification/notifier"
 
 /**
@@ -14,7 +14,7 @@ import type { Notifier } from "../notification/notifier"
  */
 export class ModelRefreshMonitor {
   private readonly knownModels = new Map<string, string[]>()
-  private readonly intervals   = new Map<string, ReturnType<typeof setInterval>>()
+  private readonly intervals = new Map<string, ReturnType<typeof setInterval>>()
 
   /**
    * Records the initial model list for a provider URL, establishing the
@@ -70,7 +70,7 @@ export class ModelRefreshMonitor {
         this.knownModels.set(baseUrl, current)
         return
       }
-      const added   = current.filter((m) => !previous.includes(m))
+      const added = current.filter((m) => !previous.includes(m))
       const removed = previous.filter((m) => !current.includes(m))
       this.notifyChanges(providerKey, notifier, added, removed)
       this.knownModels.set(baseUrl, current)

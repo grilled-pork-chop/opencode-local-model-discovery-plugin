@@ -1,7 +1,6 @@
 import { OPENAI_COMPATIBLE_NPM } from "../constants"
 import { normalizeBaseUrl } from "./client"
 
-
 /**
  * Represents a single OpenAI-compatible provider resolved from the opencode config.
  */
@@ -28,15 +27,15 @@ export interface ProviderEntry {
  */
 export function extractCompatibleProviders(config: unknown): ProviderEntry[] {
   if (!config || typeof config !== "object") return []
-  const providers = (config as Record<string, unknown>)["provider"]
+  const providers = (config as Record<string, unknown>).provider
   if (!providers || typeof providers !== "object") return []
 
   return Object.entries(providers as Record<string, unknown>).flatMap(([key, value]) => {
     if (!value || typeof value !== "object") return []
     const p = value as Record<string, unknown>
-    if (p["npm"] !== OPENAI_COMPATIBLE_NPM) return []
-    const options = p["options"] as Record<string, unknown> | undefined
-    const baseURL = options?.["baseURL"]
+    if (p.npm !== OPENAI_COMPATIBLE_NPM) return []
+    const options = p.options as Record<string, unknown> | undefined
+    const baseURL = options?.baseURL
     if (typeof baseURL !== "string" || !baseURL) return []
     return [{ key, baseUrl: normalizeBaseUrl(baseURL) }]
   })

@@ -24,6 +24,6 @@ export const LocalModelPlugin: Plugin = async ({ client }) => {
     return { config: async () => {} }
   }
   const notifier = new Notifier(client)
-  const monitor  = new ModelRefreshMonitor()
+  const monitor = new ModelRefreshMonitor()
   return { config: buildConfigHook(notifier, monitor) }
 }

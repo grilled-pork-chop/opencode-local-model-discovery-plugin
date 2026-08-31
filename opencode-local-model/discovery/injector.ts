@@ -14,11 +14,9 @@ export function applyDiscoveredModels(
   providerKey: string,
   modelIds: string[]
 ): void {
-  const providers = (config as Record<string, unknown>)["provider"] as Record<string, unknown>
+  const providers = (config as Record<string, unknown>).provider as Record<string, unknown>
   const provider = providers[providerKey] as Record<string, unknown>
-  provider["models"] = Object.fromEntries(
-    modelIds.map((id) => [id, buildModelEntry(id)])
-  )
+  provider.models = Object.fromEntries(modelIds.map((id) => [id, buildModelEntry(id)]))
 }
 
 /**
@@ -34,6 +32,6 @@ export function applyDiscoveredModels(
 function buildModelEntry(id: string): Record<string, unknown> {
   return {
     name: simplifyModelId(id),
-    limit: { context: 0, output: 8192 }
+    limit: { context: 0, output: 8192 },
   }
 }
