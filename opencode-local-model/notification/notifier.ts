@@ -65,7 +65,7 @@ export class Notifier {
       try {
         this.client?.tui?.showToast?.({ body: { message, variant, duration: DURATION[variant] } })
       } catch {
-        // Non-critical — notification failures must not affect plugin behavior
+        // Non-critical: notification failures must not affect plugin behavior
       }
     }, NOTIFIER_TIMEOUT_MS)
   }

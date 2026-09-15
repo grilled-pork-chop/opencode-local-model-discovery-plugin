@@ -2,7 +2,7 @@ import { simplifyModelId } from "../constants"
 
 /**
  * Replaces a provider's `models` map with the IDs returned by the API.
- * The API is treated as the sole source of truth — models no longer
+ * The API is treated as the sole source of truth, so models no longer
  * served by the provider are removed from the config.
  *
  * @param config      - The raw config object passed to the {@link ConfigHook}.

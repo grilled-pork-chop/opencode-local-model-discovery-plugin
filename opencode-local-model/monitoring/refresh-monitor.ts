@@ -61,7 +61,7 @@ export class ModelRefreshMonitor {
   /**
    * Executes one poll cycle: fetches the current model list, computes a diff
    * against {@link knownModels}, delegates notification to {@link notifyChanges},
-   * then updates the stored baseline. Fetch errors are swallowed — startup
+   * then updates the stored baseline. Fetch errors are swallowed, because startup
    * already surfaced permanent failures via the error toast.
    */
   private async poll(
@@ -74,7 +74,7 @@ export class ModelRefreshMonitor {
       const current = await fetchModels(baseUrl, token)
       const previous = this.knownModels.get(baseUrl)
       if (!previous) {
-        // First unseeded poll — store baseline and skip diff
+        // First unseeded poll: store baseline and skip diff
         this.knownModels.set(baseUrl, current)
         return
       }
@@ -83,7 +83,7 @@ export class ModelRefreshMonitor {
       this.notifyChanges(providerKey, notifier, added, removed)
       this.knownModels.set(baseUrl, current)
     } catch {
-      // Silent — transient poll errors are not surfaced to the user
+      // Silent: transient poll errors are not surfaced to the user
     }
   }
 
