@@ -35,13 +35,16 @@ export class ModelRefreshMonitor {
    * @param providerKey - Provider key included in notification messages.
    * @param baseUrl     - Normalized provider URL to poll.
    * @param notifier    - {@link Notifier} used to surface model-change toasts.
+   * @param token       - Bearer token for providers that authenticate `/v1/models`.
    */
-  start(providerKey: string, baseUrl: string, notifier: Notifier): void {
+  start(providerKey: string, baseUrl: string, notifier: Notifier, token?: string): void {
     if (this.intervals.has(baseUrl)) return
     const interval = setInterval(
-      () => this.poll(providerKey, baseUrl, notifier).catch(() => {}),
+      () => this.poll(providerKey, baseUrl, notifier, token).catch(() => {}),
       POLL_INTERVAL_MS
     )
+    // Polling must not hold a short-lived process (`opencode run`) open past its work.
+    interval.unref?.()
     this.intervals.set(baseUrl, interval)
   }
 
@@ -58,15 +61,20 @@ export class ModelRefreshMonitor {
   /**
    * Executes one poll cycle: fetches the current model list, computes a diff
    * against {@link knownModels}, delegates notification to {@link notifyChanges},
-   * then updates the stored baseline. Fetch errors are swallowed — startup
+   * then updates the stored baseline. Fetch errors are swallowed, because startup
    * already surfaced permanent failures via the error toast.
    */
-  private async poll(providerKey: string, baseUrl: string, notifier: Notifier): Promise<void> {
+  private async poll(
+    providerKey: string,
+    baseUrl: string,
+    notifier: Notifier,
+    token?: string
+  ): Promise<void> {
     try {
-      const current = await fetchModels(baseUrl)
+      const current = await fetchModels(baseUrl, token)
       const previous = this.knownModels.get(baseUrl)
       if (!previous) {
-        // First unseeded poll — store baseline and skip diff
+        // First unseeded poll: store baseline and skip diff
         this.knownModels.set(baseUrl, current)
         return
       }
@@ -75,7 +83,7 @@ export class ModelRefreshMonitor {
       this.notifyChanges(providerKey, notifier, added, removed)
       this.knownModels.set(baseUrl, current)
     } catch {
-      // Silent — transient poll errors are not surfaced to the user
+      // Silent: transient poll errors are not surfaced to the user
     }
   }
 

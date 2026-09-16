@@ -20,6 +20,13 @@ export const POLL_INTERVAL_MS = 15_000
 export const FETCH_TIMEOUT_MS = 5_000
 
 /**
+ * HTTP statuses that mean the provider refused the credential. 401 and 403 are
+ * the standard answers; some OpenAI-compatible servers use 400 for a missing or
+ * malformed `Authorization` header instead.
+ */
+export const AUTH_FAILURE_STATUS = new Set([400, 401, 403])
+
+/**
  * Timeout for each notifier display by {@link Notifier}.
  */
 export const NOTIFIER_TIMEOUT_MS = 1_000

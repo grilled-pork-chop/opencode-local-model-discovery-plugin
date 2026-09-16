@@ -43,6 +43,8 @@ export type ConfigHook = (config: OpenCodeConfig) => Promise<void>
 /** The object a plugin must return from its factory function. */
 export interface PluginOutput {
   config: ConfigHook
+  /** Called by OpenCode when the plugin is torn down. */
+  dispose?: () => Promise<void>
 }
 
 /** Factory function signature for an OpenCode plugin. */
