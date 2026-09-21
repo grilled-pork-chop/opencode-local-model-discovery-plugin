@@ -43,27 +43,11 @@ export function simplifyModelId(id: string): string {
 }
 
 /**
- * OpenCode's own marker for a limit it does not know. A zero context disables
- * auto compaction (`session/overflow.ts`), and a zero output makes OpenCode
- * fall back to its own default cap (`provider/transform.ts`).
+ * Context written when a server reports none. This is OpenCode's own marker for
+ * an unknown context: it disables auto compaction (`session/overflow.ts`)
+ * rather than guessing a window.
  */
-export const UNKNOWN_LIMIT = 0
+export const UNKNOWN_CONTEXT = 0
 
-/**
- * Ceiling for an output cap derived from the context window. Matches OpenCode's
- * `OUTPUT_TOKEN_MAX`, so a derived cap never exceeds what it would have applied
- * on its own.
- */
-export const MAX_DERIVED_OUTPUT = 32_000
-
-/**
- * Share of the context window used as the output cap when a server reports a
- * context but no output limit.
- *
- * Servers that enforce `prompt + max_tokens <= context`, vLLM among them,
- * reject a request outright when the cap leaves no room for the prompt, so a
- * flat default is wrong in both directions: too small truncates long replies on
- * large models, too large breaks small ones. A quarter of the window leaves
- * three quarters for the prompt and scales with whatever the server reported.
- */
-export const DERIVED_OUTPUT_SHARE = 4
+/** Output cap written when a server reports none. */
+export const DEFAULT_OUTPUT_LIMIT = 8192

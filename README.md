@@ -66,7 +66,7 @@ becomes:
 "models": {
   "DeepSeek-V4.1-Flash": {
     "name": "DeepSeek-V4.1-Flash",
-    "limit": { "context": 131072, "output": 32000 }
+    "limit": { "context": 131072, "output": 8192 }
   }
 }
 ```
@@ -79,23 +79,13 @@ Field names differ between servers, so several are checked in order:
 | `limit.output` | `max_output_length`, `max_completion_tokens`, `max_output_tokens`, `top_provider.max_completion_tokens` |
 | `name` | the server's own `name`, else the last path segment of the id |
 
-Most servers report a context window but no output cap. A flat default is wrong
-in both directions there: too small truncates long replies on a large model, too
-large breaks a small one, because servers that enforce
-`prompt + max_tokens <= context`, vLLM among them, reject the request outright.
-So the output cap is derived from the window the server reported, a quarter of
-it, capped at 32000 to match OpenCode's own ceiling:
+Anything a server does not report falls back: `0` for the context, which is
+OpenCode's marker for unknown and disables auto compaction, and `8192` for the
+output cap.
 
-| Reported context | Output cap applied |
-|---|---|
-| 131072 | 32000 |
-| 32768 | 8192 |
-| 8192 | 2048 |
-| none | `limit` omitted, OpenCode's defaults apply |
-
-Anything you write yourself in `opencode.jsonc` wins over the discovered value,
-field by field, so pinning one model's output cap leaves everything else
-tracking the server:
+That default suits most models but not all, so anything you write yourself in
+`opencode.jsonc` wins over the discovered value, field by field. Pinning one
+model's output cap leaves its context and every other model tracking the server:
 
 ```jsonc
 "provider": {

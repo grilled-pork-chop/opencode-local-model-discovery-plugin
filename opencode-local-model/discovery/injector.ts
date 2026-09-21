@@ -1,9 +1,4 @@
-import {
-  DERIVED_OUTPUT_SHARE,
-  MAX_DERIVED_OUTPUT,
-  UNKNOWN_LIMIT,
-  simplifyModelId,
-} from "../constants"
+import { DEFAULT_OUTPUT_LIMIT, UNKNOWN_CONTEXT, simplifyModelId } from "../constants"
 import type { DiscoveredModel } from "./client"
 
 /**
@@ -32,11 +27,33 @@ export function applyDiscoveredModels(
 }
 
 /**
+ * Builds a model entry object for injection into a provider's `models` map.
+ *
+ * Limits come from the endpoint when the server publishes them, for example
+ * vLLM's `max_model_len`, and fall back to {@link UNKNOWN_CONTEXT} and
+ * {@link DEFAULT_OUTPUT_LIMIT} otherwise. The display name is the server's own
+ * `name` when there is one, else the last path segment of the ID
+ * (e.g. `"organization/llama3"` → `"llama3"`).
+ *
+ * @param model - A model returned by {@link fetchModels}.
+ * @returns A model entry with a display name and token limits.
+ */
+function buildModelEntry(model: DiscoveredModel): Record<string, unknown> {
+  return {
+    name: model.name ?? simplifyModelId(model.id),
+    limit: {
+      context: model.context ?? UNKNOWN_CONTEXT,
+      output: model.output ?? DEFAULT_OUTPUT_LIMIT,
+    },
+  }
+}
+
+/**
  * Lets a user-declared model entry override the discovered one field by field,
  * so a hand-set `limit.output` survives discovery while everything the user did
  * not mention still tracks the server.
  *
- * `limit` is merged rather than replaced, and is normalized afterwards because
+ * `limit` is merged rather than replaced, and is filled in afterwards because
  * OpenCode's schema requires both of its fields once the object is present.
  *
  * @param discovered - The entry built from the API response.
@@ -46,22 +63,22 @@ function applyOverrides(
   discovered: Record<string, unknown>,
   override: unknown
 ): Record<string, unknown> {
-  if (!override || typeof override !== "object") return discovered
-  const declared = override as Record<string, unknown>
-  const merged: Record<string, unknown> = { ...discovered, ...declared }
+  const declared = asRecord(override)
+  if (!declared) return discovered
 
   const limit = {
     ...(asRecord(discovered.limit) ?? {}),
     ...(asRecord(declared.limit) ?? {}),
   }
-  if (Object.keys(limit).length > 0) {
-    merged.limit = {
+  return {
+    ...discovered,
+    ...declared,
+    limit: {
       ...limit,
-      context: limit.context ?? UNKNOWN_LIMIT,
-      output: limit.output ?? UNKNOWN_LIMIT,
-    }
+      context: limit.context ?? UNKNOWN_CONTEXT,
+      output: limit.output ?? DEFAULT_OUTPUT_LIMIT,
+    },
   }
-  return merged
 }
 
 /** Narrows a value to a plain object, or undefined when it is anything else. */
@@ -69,50 +86,4 @@ function asRecord(value: unknown): Record<string, unknown> | undefined {
   return value && typeof value === "object" && !Array.isArray(value)
     ? (value as Record<string, unknown>)
     : undefined
-}
-
-/**
- * Builds a model entry object for injection into a provider's `models` map.
- *
- * Limits are written only when the server reported at least one of them.
- * OpenCode's config schema requires both `context` and `output` once `limit`
- * is present, so the half a server did not report is written as
- * {@link UNKNOWN_LIMIT}; when it reported neither, `limit` is left out entirely
- * so OpenCode's own fallback chain applies. Inventing a number would be worse
- * than saying nothing: an invented output cap is sent straight to the model as
- * `maxOutputTokens` and silently truncates long replies.
- *
- * The display name is the server's own `name` when there is one, else the last
- * path segment of the ID (e.g. `"organization/llama3"` → `"llama3"`).
- *
- * @param model - A model returned by {@link fetchModels}.
- * @returns A model entry with a display name, and limits when known.
- */
-function buildModelEntry(model: DiscoveredModel): Record<string, unknown> {
-  const entry: Record<string, unknown> = {
-    name: model.name ?? simplifyModelId(model.id),
-  }
-  if (model.context !== undefined || model.output !== undefined) {
-    entry.limit = {
-      context: model.context ?? UNKNOWN_LIMIT,
-      output: model.output ?? deriveOutputLimit(model.context),
-    }
-  }
-  return entry
-}
-
-/**
- * Derives an output cap from a reported context window.
- *
- * Used only when the server publishes a context but no output limit, which is
- * the common case. See {@link DERIVED_OUTPUT_SHARE} for why the cap scales with
- * the window instead of being a fixed number.
- *
- * @param context - The reported context window, if any.
- * @returns A cap that leaves room for the prompt, or {@link UNKNOWN_LIMIT}
- *          when there is no context to derive one from.
- */
-function deriveOutputLimit(context: number | undefined): number {
-  if (context === undefined) return UNKNOWN_LIMIT
-  return Math.min(Math.floor(context / DERIVED_OUTPUT_SHARE), MAX_DERIVED_OUTPUT)
 }
