@@ -66,7 +66,7 @@ becomes:
 "models": {
   "DeepSeek-V4.1-Flash": {
     "name": "DeepSeek-V4.1-Flash",
-    "limit": { "context": 131072, "output": 0 }
+    "limit": { "context": 131072, "output": 32000 }
   }
 }
 ```
@@ -79,17 +79,36 @@ Field names differ between servers, so several are checked in order:
 | `limit.output` | `max_output_length`, `max_completion_tokens`, `max_output_tokens`, `top_provider.max_completion_tokens` |
 | `name` | the server's own `name`, else the last path segment of the id |
 
-Nothing is invented for what a server does not report. If it reports neither
-limit, as Ollama does, the `limit` object is left out of the entry entirely and
-OpenCode applies its own defaults. If it reports one but not the other, the
-missing half is written as `0`, which is OpenCode's marker for "unknown": a zero
-context disables auto compaction, and a zero output makes OpenCode use its own
-output cap rather than one this plugin made up. An invented cap would be sent to
-the model as `maxOutputTokens` and would silently truncate long replies.
+Most servers report a context window but no output cap. A flat default is wrong
+in both directions there: too small truncates long replies on a large model, too
+large breaks a small one, because servers that enforce
+`prompt + max_tokens <= context`, vLLM among them, reject the request outright.
+So the output cap is derived from the window the server reported, a quarter of
+it, capped at 32000 to match OpenCode's own ceiling:
 
-Values arriving as strings are accepted; zero and negative values are treated as
-not reported. Servers that publish nothing beyond `id`, such as Ollama, behave
-exactly as before.
+| Reported context | Output cap applied |
+|---|---|
+| 131072 | 32000 |
+| 32768 | 8192 |
+| 8192 | 2048 |
+| none | `limit` omitted, OpenCode's defaults apply |
+
+Anything you write yourself in `opencode.jsonc` wins over the discovered value,
+field by field, so pinning one model's output cap leaves everything else
+tracking the server:
+
+```jsonc
+"provider": {
+  "local": {
+    "models": {
+      "DeepSeek-V4.1-Flash": { "limit": { "output": 4096 } }
+    }
+  }
+}
+```
+
+The API still decides which models exist, so a model the server stops serving
+disappears even if you declared it.
 
 ## Authenticated servers
 

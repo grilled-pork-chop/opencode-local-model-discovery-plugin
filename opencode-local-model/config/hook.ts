@@ -22,6 +22,11 @@ import type { ConfigHook, OpenCodeConfig } from "../types"
  * @param monitor  - Polls each provider for model changes after startup.
  */
 export function buildConfigHook(notifier: Notifier, monitor: ModelRefreshMonitor): ConfigHook {
+  // Captured once per provider, before the first injection, so a later config
+  // reload compares against what the user wrote rather than against the models
+  // this hook injected on the previous pass.
+  const declaredModels = new Map<string, Record<string, unknown>>()
+
   return async (config: OpenCodeConfig): Promise<void> => {
     const providers = extractCompatibleProviders(config)
     if (providers.length === 0) {
@@ -31,11 +36,12 @@ export function buildConfigHook(notifier: Notifier, monitor: ModelRefreshMonitor
 
     await Promise.all(
       providers.map(async ({ key, baseUrl }) => {
+        const declared = rememberDeclared(declaredModels, config, key)
         const token = await resolveToken(config, key)
 
         try {
           const models = await fetchModels(baseUrl, token)
-          applyDiscoveredModels(config, key, models)
+          applyDiscoveredModels(config, key, models, declared)
           monitor.seed(
             baseUrl,
             models.map((model) => model.id)
@@ -62,6 +68,26 @@ export function buildConfigHook(notifier: Notifier, monitor: ModelRefreshMonitor
       })
     )
   }
+}
+
+/**
+ * Returns the provider's `models` map as the user declared it, snapshotting it
+ * the first time this provider is seen.
+ *
+ * @param cache  - Per-provider snapshots taken by earlier hook invocations.
+ * @param config - The config object passed to the {@link ConfigHook}.
+ * @param key    - Provider key to snapshot.
+ */
+function rememberDeclared(
+  cache: Map<string, Record<string, unknown>>,
+  config: OpenCodeConfig,
+  key: string
+): Record<string, unknown> {
+  const cached = cache.get(key)
+  if (cached) return cached
+  const declared = structuredClone(config.provider?.[key]?.models ?? {}) as Record<string, unknown>
+  cache.set(key, declared)
+  return declared
 }
 
 /**
