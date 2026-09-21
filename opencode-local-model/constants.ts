@@ -43,10 +43,10 @@ export function simplifyModelId(id: string): string {
 }
 
 /**
- * Context window applied when the server reports none. Zero is what OpenCode
- * treats as "unknown", so nothing is claimed that the server did not say.
+ * OpenCode's own marker for a limit it does not know, used when a server
+ * reports one half of `limit` but not the other. A zero context disables auto
+ * compaction (`session/overflow.ts`), and a zero output makes OpenCode fall
+ * back to its default output cap (`provider/transform.ts`), so in both cases
+ * it decides rather than the plugin guessing.
  */
-export const DEFAULT_CONTEXT_LIMIT = 0
-
-/** Output cap applied when the server reports none. */
-export const DEFAULT_OUTPUT_LIMIT = 8192
+export const UNKNOWN_LIMIT = 0

@@ -66,18 +66,26 @@ becomes:
 "models": {
   "DeepSeek-V4.1-Flash": {
     "name": "DeepSeek-V4.1-Flash",
-    "limit": { "context": 131072, "output": 8192 }
+    "limit": { "context": 131072, "output": 0 }
   }
 }
 ```
 
 Field names differ between servers, so several are checked in order:
 
-| Entry | Fields checked, in order | Fallback |
-|---|---|---|
-| `limit.context` | `max_model_len` (vLLM), `context_length` (OpenRouter, Modal), `max_context_length` (LM Studio), `context_window`, `meta.n_ctx_train` (llama.cpp) | `0`, which OpenCode reads as unknown |
-| `limit.output` | `max_output_length`, `max_completion_tokens`, `max_output_tokens`, `top_provider.max_completion_tokens` | `8192` |
-| `name` | the server's own `name` | last path segment of the id |
+| Entry | Fields checked, in order |
+|---|---|
+| `limit.context` | `max_model_len` (vLLM), `context_length` (OpenRouter, Modal), `max_context_length` (LM Studio), `context_window`, `meta.n_ctx_train` (llama.cpp) |
+| `limit.output` | `max_output_length`, `max_completion_tokens`, `max_output_tokens`, `top_provider.max_completion_tokens` |
+| `name` | the server's own `name`, else the last path segment of the id |
+
+Nothing is invented for what a server does not report. If it reports neither
+limit, as Ollama does, the `limit` object is left out of the entry entirely and
+OpenCode applies its own defaults. If it reports one but not the other, the
+missing half is written as `0`, which is OpenCode's marker for "unknown": a zero
+context disables auto compaction, and a zero output makes OpenCode use its own
+output cap rather than one this plugin made up. An invented cap would be sent to
+the model as `maxOutputTokens` and would silently truncate long replies.
 
 Values arriving as strings are accepted; zero and negative values are treated as
 not reported. Servers that publish nothing beyond `id`, such as Ollama, behave
