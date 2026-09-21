@@ -41,3 +41,12 @@ export const NOTIFIER_TIMEOUT_MS = 1_000
 export function simplifyModelId(id: string): string {
   return id.replace(/\/+$/, "").split("/").pop() ?? id
 }
+
+/**
+ * Context window applied when the server reports none. Zero is what OpenCode
+ * treats as "unknown", so nothing is claimed that the server did not say.
+ */
+export const DEFAULT_CONTEXT_LIMIT = 0
+
+/** Output cap applied when the server reports none. */
+export const DEFAULT_OUTPUT_LIMIT = 8192

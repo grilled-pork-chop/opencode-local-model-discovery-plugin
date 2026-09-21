@@ -12,7 +12,8 @@ The plugin scans your OpenCode config for any provider using the
 `@ai-sdk/openai-compatible` adapter with an `options.baseURL`, then:
 
 1. **Discover**: fetches `GET {baseURL}/v1/models` and filters to usable chat
-   models, authenticated when the provider has a credential.
+   models, authenticated when the provider has a credential, reading each
+   model's reported limits along the way.
 2. **Inject**: replaces the provider's `models` map with what the server reports
    (the API is the source of truth, so removed models drop out too).
 3. **Poll**: re-checks every 15 seconds in the background and toasts whenever a
@@ -49,6 +50,38 @@ fills in the `models` for you:
 
 Start OpenCode and you'll get a toast listing the discovered models. A trailing
 `/v1` (or `/v1/`) on the `baseURL` is handled automatically.
+
+## Model metadata
+
+Limits come from the endpoint when the server publishes them, so a vLLM entry
+like this:
+
+```json
+{ "id": "DeepSeek-V4.1-Flash", "owned_by": "vllm", "max_model_len": 131072 }
+```
+
+becomes:
+
+```jsonc
+"models": {
+  "DeepSeek-V4.1-Flash": {
+    "name": "DeepSeek-V4.1-Flash",
+    "limit": { "context": 131072, "output": 8192 }
+  }
+}
+```
+
+Field names differ between servers, so several are checked in order:
+
+| Entry | Fields checked, in order | Fallback |
+|---|---|---|
+| `limit.context` | `max_model_len` (vLLM), `context_length` (OpenRouter, Modal), `max_context_length` (LM Studio), `context_window`, `meta.n_ctx_train` (llama.cpp) | `0`, which OpenCode reads as unknown |
+| `limit.output` | `max_output_length`, `max_completion_tokens`, `max_output_tokens`, `top_provider.max_completion_tokens` | `8192` |
+| `name` | the server's own `name` | last path segment of the id |
+
+Values arriving as strings are accepted; zero and negative values are treated as
+not reported. Servers that publish nothing beyond `id`, such as Ollama, behave
+exactly as before.
 
 ## Authenticated servers
 

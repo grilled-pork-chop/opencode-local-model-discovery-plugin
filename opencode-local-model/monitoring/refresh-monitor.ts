@@ -71,7 +71,7 @@ export class ModelRefreshMonitor {
     token?: string
   ): Promise<void> {
     try {
-      const current = await fetchModels(baseUrl, token)
+      const current = (await fetchModels(baseUrl, token)).map((model) => model.id)
       const previous = this.knownModels.get(baseUrl)
       if (!previous) {
         // First unseeded poll: store baseline and skip diff
