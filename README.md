@@ -83,23 +83,6 @@ Anything a server does not report falls back: `0` for the context, which is
 OpenCode's marker for unknown and disables auto compaction, and `8192` for the
 output cap.
 
-That default suits most models but not all, so anything you write yourself in
-`opencode.jsonc` wins over the discovered value, field by field. Pinning one
-model's output cap leaves its context and every other model tracking the server:
-
-```jsonc
-"provider": {
-  "local": {
-    "models": {
-      "DeepSeek-V4.1-Flash": { "limit": { "output": 4096 } }
-    }
-  }
-}
-```
-
-The API still decides which models exist, so a model the server stops serving
-disappears even if you declared it.
-
 ## Authenticated servers
 
 If your server requires a token on `/v1/models` and completions, store it with
