@@ -66,7 +66,7 @@ becomes:
 "models": {
   "DeepSeek-V4.1-Flash": {
     "name": "DeepSeek-V4.1-Flash",
-    "limit": { "context": 131072, "output": 8192 }
+    "limit": { "context": 131072, "output": 0 }
   }
 }
 ```
@@ -79,9 +79,12 @@ Field names differ between servers, so several are checked in order:
 | `limit.output` | `max_output_length`, `max_completion_tokens`, `max_output_tokens`, `top_provider.max_completion_tokens` |
 | `name` | the server's own `name`, else the last path segment of the id |
 
-Anything a server does not report falls back: `0` for the context, which is
-OpenCode's marker for unknown and disables auto compaction, and `8192` for the
-output cap.
+Anything a server does not report falls back to `0`, which is OpenCode's marker
+for unknown: a zero context disables auto compaction, and a zero output cap
+makes OpenCode apply its own `OUTPUT_TOKEN_MAX` (32000), tunable with
+`OPENCODE_EXPERIMENTAL_OUTPUT_TOKEN_MAX`. Writing a fixed number here instead
+would cap the model at that value permanently, since OpenCode takes the lower of
+the two.
 
 ## Authenticated servers
 

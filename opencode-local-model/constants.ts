@@ -49,5 +49,11 @@ export function simplifyModelId(id: string): string {
  */
 export const UNKNOWN_CONTEXT = 0
 
-/** Output cap written when a server reports none. */
-export const DEFAULT_OUTPUT_LIMIT = 8192
+/**
+ * Output cap written when a server reports none. Zero hands the decision to
+ * OpenCode, which applies its own `OUTPUT_TOKEN_MAX` and lets
+ * `OPENCODE_EXPERIMENTAL_OUTPUT_TOKEN_MAX` raise or lower it. A fixed number
+ * here would be a ceiling nothing could lift, because OpenCode takes the lower
+ * of the two.
+ */
+export const DEFAULT_OUTPUT_LIMIT = 0
