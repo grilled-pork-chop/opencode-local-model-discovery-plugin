@@ -115,20 +115,10 @@ async function openLocalModels(ctx: Context): Promise<void> {
     options,
     current,
   })
-  if (choice?.type === "refresh") await refresh(ctx)
+  // Reloading the project's config and plugins makes the discovery plugin fetch
+  // every provider's models again; any change then gets the usual toast.
+  if (choice?.type === "refresh") await ctx.client.location.reload()
   if (choice?.type === "model") await switchModel(ctx, choice.providerID, choice.modelID)
-}
-
-/**
- * Reloads the project's configuration and plugins, which makes the server
- * plugin fetch every provider's models again. Resulting changes are announced
- * by the usual change toasts.
- *
- * @param ctx - The TUI plugin context.
- */
-async function refresh(ctx: Context): Promise<void> {
-  ctx.ui.toast.show({ title: TITLE, message: "Refreshing local models…", variant: "info" })
-  await ctx.client.location.reload()
 }
 
 /**
