@@ -254,6 +254,7 @@ bun run lint        # Biome: lint + format check
 bun run format      # Biome: apply fixes
 bun run typecheck   # tsc --noEmit
 bun run test        # bun test
+bun run mock        # mock OpenAI-compatible server, see above
 ```
 
 `@opencode/plugin` is a dev dependency for types only; the plugin imports

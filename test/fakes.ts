@@ -32,12 +32,12 @@ export function fakeEditor(providerID: string, initial: Record<string, Partial<M
   return { editor, models }
 }
 
-/** Mirrors V2's Model.Info.default: no settings, no variants, 200k/32k limits. */
+/** Mirrors V2's Model.Info.default: no settings, no variants, a 200k context. */
 function draft(id: string, overrides: Partial<ModelDraft> = {}): ModelDraft {
   return {
     modelID: id,
     name: id,
-    limit: { context: 200_000, output: 32_000 },
+    limit: { context: 200_000 },
     variants: [],
     ...overrides,
   }

@@ -1,7 +1,13 @@
+/**
+ * @module monitoring/refresh-monitor
+ *
+ * Polls the tracked providers and keeps their discovered model lists.
+ */
+
 import { POLL_INTERVAL_MS, sanitizeModelId } from "../constants"
 import { type DiscoveredModel, fetchModels } from "../discovery/client"
 import type { ProviderEntry } from "../discovery/scanner"
-import { formatModels, log } from "../logger"
+import { errorMessage, formatModels, log } from "../logger"
 
 /** A provider to poll, with the credential resolved for it. */
 export interface TrackedProvider {
@@ -212,8 +218,4 @@ function logChanges(
       log.warning(`Model "${sanitizeModelId(id)}" removed from provider "${key}"`)
     }
   }
-}
-
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error)
 }

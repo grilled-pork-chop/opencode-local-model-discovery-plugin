@@ -34,10 +34,14 @@ async function setup(ctx: Context): Promise<Plugin.Cleanup> {
   const stopListening = ctx.data.on("model.updated", () => {
     clearTimeout(timer)
     timer = setTimeout(async () => {
-      const current = await loadLocalModels(ctx)
-      const toast = changeToast(known, current)
-      if (toast) ctx.ui.toast.show({ title: TITLE, ...toast })
-      known = current
+      try {
+        const current = await loadLocalModels(ctx)
+        const toast = changeToast(known, current)
+        if (toast) ctx.ui.toast.show({ title: TITLE, ...toast })
+        known = current
+      } catch {
+        // The TUI lost its data connection; the next update compares again.
+      }
     }, SETTLE_MS)
   })
 

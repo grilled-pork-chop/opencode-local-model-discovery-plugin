@@ -1,11 +1,11 @@
 /**
  * @module types
  *
- * The parts of OpenCode V2's model API this plugin touches.
+ * The parts of OpenCode V2's provider and model API this plugin touches.
  *
- * They mirror `ModelEditor` and `Model.Info` from `@opencode/plugin` with plain
- * strings instead of its branded ids, so the injector can be tested without an
- * OpenCode host.
+ * They mirror `Provider.Info`, `ModelEditor` and `Model.Info` from
+ * `@opencode/plugin` with plain strings instead of its branded ids, so the
+ * modules can be tested without an OpenCode host.
  */
 
 /** Reasoning or request settings merged into a model or variant. */
@@ -21,7 +21,7 @@ export interface ModelVariant {
 export interface ModelDraft {
   modelID: string
   name: string
-  limit: { context: number; output: number }
+  limit: { context: number }
   settings?: ModelSettings
   variants: ModelVariant[]
 }

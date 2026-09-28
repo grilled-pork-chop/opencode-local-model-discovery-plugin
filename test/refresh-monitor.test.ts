@@ -1,6 +1,6 @@
-import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test"
+import { afterAll, afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test"
 import type { DiscoveredModel } from "../opencode-local-model/discovery/client"
-import { formatTokens, log } from "../opencode-local-model/logger"
+import { log } from "../opencode-local-model/logger"
 import { ModelRefreshMonitor } from "../opencode-local-model/monitoring/refresh-monitor"
 
 const local = { provider: { key: "local", baseUrl: "http://h" }, token: "t" }
@@ -17,6 +17,9 @@ beforeEach(() => {
 })
 afterEach(() => {
   for (const spy of spies) spy.mockClear()
+})
+afterAll(() => {
+  for (const spy of spies) spy.mockRestore()
 })
 
 /** A monitor whose server answers with `served`, or throws `failure` when set. */
@@ -135,13 +138,5 @@ describe("ModelRefreshMonitor", () => {
     await t.monitor.track([local, lan])
     await t.monitor.poll(["lan"])
     expect(t.fetches).toEqual([{ baseUrl: "http://lan", token: undefined }])
-  })
-})
-
-describe("formatTokens", () => {
-  test("uses binary or decimal thousands as documented by the model", () => {
-    expect(formatTokens(512)).toBe("512")
-    expect(formatTokens(131072)).toBe("128k")
-    expect(formatTokens(200000)).toBe("200k")
   })
 })

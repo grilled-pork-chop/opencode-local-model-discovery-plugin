@@ -26,7 +26,7 @@ import { resolveToken } from "./auth/credentials"
 import { OPENAI_COMPATIBLE_NPM, PLUGIN_ID } from "./constants"
 import { applyDiscoveredModels } from "./discovery/injector"
 import { extractCompatibleProviders } from "./discovery/scanner"
-import { log } from "./logger"
+import { errorMessage, log } from "./logger"
 import { ModelRefreshMonitor } from "./monitoring/refresh-monitor"
 import type { ModelEditorLike } from "./types"
 
@@ -39,7 +39,9 @@ async function setup(ctx: Plugin.Context): Promise<Plugin.Cleanup> {
   })
 
   // Discovery runs in the background so a slow server never delays startup.
-  syncProviders(ctx, monitor).catch((error) => log.error(`Discovery failed: ${error}`))
+  syncProviders(ctx, monitor).catch((error) =>
+    log.error(`Discovery failed: ${errorMessage(error)}`)
+  )
   monitor.start()
 
   const abort = new AbortController()
@@ -123,7 +125,7 @@ async function watchProviders(
       warned = count === 0
     }
   } catch (error) {
-    if (!signal.aborted) log.warning(`Stopped watching providers: ${error}`)
+    if (!signal.aborted) log.warning(`Stopped watching providers: ${errorMessage(error)}`)
   }
 }
 

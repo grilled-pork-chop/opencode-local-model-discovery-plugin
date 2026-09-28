@@ -1,11 +1,11 @@
 /**
  * @module logger
  *
- * Writes the plugin's messages to the OpenCode log.
+ * Writes the discovery plugin's messages to the OpenCode log.
  *
- * OpenCode V2 runs plugins in its background service, which cannot show TUI
- * toasts, so discoveries, changes and errors are logged instead. Every message
- * goes through {@link log}, the one place to change if toasts are added later.
+ * The discovery plugin runs in OpenCode's background service, which has no
+ * TUI, so its discoveries, changes and errors go to the log; the TUI plugin
+ * (`tui.ts`) announces model changes with a toast on its side.
  */
 
 import { PLUGIN_ID, sanitizeModelId } from "./constants"
@@ -22,6 +22,15 @@ export const log = {
   error(message: string): void {
     console.error(`[${PLUGIN_ID}] ${message}`)
   },
+}
+
+/**
+ * Returns the message of a thrown value, whatever it is.
+ *
+ * @param error - The caught value.
+ */
+export function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error)
 }
 
 /**

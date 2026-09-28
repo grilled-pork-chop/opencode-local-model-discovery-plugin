@@ -1,3 +1,9 @@
+/**
+ * @module discovery/client
+ *
+ * Fetches and parses a provider's OpenAI-compatible `/v1/models` endpoint.
+ */
+
 import { AUTH_FAILURE_STATUS, FETCH_TIMEOUT_MS } from "../constants"
 
 /**
