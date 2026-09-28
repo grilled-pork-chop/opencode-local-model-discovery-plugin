@@ -79,31 +79,17 @@ A trailing `/v1` (or `/v1/`) on the `baseURL` is handled automatically.
 
 ## In the terminal UI
 
-The folder also holds a TUI plugin (`tui.ts`), which OpenCode loads in the
-terminal UI next to the discovery plugin:
+The folder also holds a small TUI plugin (`tui.ts`), which OpenCode loads in the
+terminal UI next to the discovery plugin. When models are added or removed, it
+shows one toast saying what changed, grouped per provider:
 
-- **Change toasts.** When models are added or removed, one toast says what
-  changed, grouped per provider:
+```
+Local models
+qwen3-coder is now available on Local
+2 models removed from Local: phi-4, gemma-3
+```
 
-  ```
-  Local models
-  qwen3-coder is now available on Local
-  2 models removed from Local: phi-4, gemma-3
-  ```
-
-- **`/local-models`**, also in the command palette (`ctrl+p`). It lists the
-  discovered models grouped by provider, with their context size when the
-  server reports one. Pick a model to switch the current session to it, or
-  **↻ Refresh now** to fetch every provider's models again right away.
-
-  ```
-  Local models                        esc
-  Search models
-  Local
-  llama3                             128k
-  z-ai/glm-5.3
-  ↻ Refresh now
-  ```
+The discovered models themselves are in OpenCode's own model picker (`/models`).
 
 ## Logs
 
@@ -156,14 +142,13 @@ live refresh without a real model server. It needs [Bun](https://bun.sh).
    }
    ```
 
-3. Start `opencode` and type `/local-models`: `llama3` and `z-ai/glm-5.3`
-   are listed under Mock. Open a session, pick one, and a message gets a canned
-   reply.
+3. Start `opencode` and type `/models`: `llama3` and `z-ai/glm-5.3` are
+   listed under Mock, and a message to either gets a canned reply.
 
 4. While OpenCode runs, edit `scripts/mock-models.json`, for example add
    `{ "id": "qwen3-coder", "context_length": 262144 }` or delete `llama3`. Within
-   about 15 seconds a toast announces the change, `/local-models` shows it, and
-   the log says so:
+   about 15 seconds a toast announces the change, `/models` shows it, and the
+   log says so:
 
    ```
    [local-model-discovery] New model "qwen3-coder" discovered for provider "mock"

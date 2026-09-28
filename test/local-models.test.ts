@@ -1,11 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import type { ProviderInfo } from "../opencode-local-model/types"
-import {
-  type LocalModel,
-  changeToast,
-  localModels,
-  modelOptions,
-} from "../opencode-local-model/ui/local-models"
+import { type LocalModel, changeToast, localModels } from "../opencode-local-model/ui/local-models"
 
 const local: ProviderInfo = {
   id: "local",
@@ -15,26 +10,21 @@ const local: ProviderInfo = {
 }
 
 /** A local model of the `local` provider. */
-const model = (id: string, context?: number): LocalModel => ({
-  providerID: "local",
-  providerName: "Local",
-  id,
-  ...(context ? { context } : {}),
-})
+const model = (id: string): LocalModel => ({ providerID: "local", providerName: "Local", id })
 
 describe("localModels", () => {
-  test("keeps only the models of discovered providers, with their context", () => {
+  test("keeps only the models of discovered providers", () => {
     const catalog: ProviderInfo = { ...local, id: "302ai", integrationID: "302ai" }
     const listed = [
-      { id: "llama3", providerID: "local", limit: { context: 131072 } },
-      { id: "glm", providerID: "local", limit: { context: 0 } },
-      { id: "gpt", providerID: "302ai", limit: { context: 128000 } },
+      { id: "llama3", providerID: "local" },
+      { id: "glm", providerID: "local" },
+      { id: "gpt", providerID: "302ai" },
     ]
-    expect(localModels([local, catalog], listed)).toEqual([model("llama3", 131072), model("glm")])
+    expect(localModels([local, catalog], listed)).toEqual([model("llama3"), model("glm")])
   })
 
   test("falls back to the provider id when it has no name", () => {
-    const listed = [{ id: "a", providerID: "local", limit: { context: 0 } }]
+    const listed = [{ id: "a", providerID: "local" }]
     const [first] = localModels([{ ...local, name: undefined }], listed)
     expect(first?.providerName).toBe("local")
   })
@@ -70,30 +60,5 @@ describe("changeToast", () => {
       message: "b was removed from Local",
       variant: "warning",
     })
-  })
-})
-
-describe("modelOptions", () => {
-  test("lists each model by id, grouped by provider, with only its context size", () => {
-    expect(modelOptions([model("llama3", 131072), model("z-ai/glm-5.3")])).toEqual([
-      {
-        title: "llama3",
-        value: { type: "model", providerID: "local", modelID: "llama3" },
-        category: "Local",
-        footer: "128k",
-      },
-      {
-        title: "z-ai/glm-5.3",
-        value: { type: "model", providerID: "local", modelID: "z-ai/glm-5.3" },
-        category: "Local",
-      },
-      { title: "↻ Refresh now", value: { type: "refresh" } },
-    ])
-  })
-
-  test("explains how to add a provider when there is no model", () => {
-    const [empty, refresh] = modelOptions([])
-    expect(empty).toMatchObject({ title: "No local model found", disabled: true })
-    expect(refresh?.value).toEqual({ type: "refresh" })
   })
 })

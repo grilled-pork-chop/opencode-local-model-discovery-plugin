@@ -1,52 +1,33 @@
 /**
  * @module ui/local-models
  *
- * What the TUI shows about local models: which models are local, how their
- * list changed, and the entries of the `/local-models` dialog.
+ * What the TUI knows about local models: which models are local, and how
+ * their list changed.
  *
  * Pure functions, kept apart from `tui.ts` so they can be tested without a TUI.
  */
 
 import { extractCompatibleProviders } from "../discovery/scanner"
-import { formatTokens } from "../logger"
 import type { ProviderInfo } from "../types"
 
-/** A discovered model as the TUI shows it. */
+/** A discovered model as the TUI sees it. */
 export interface LocalModel {
   readonly providerID: string
   /** The provider's display name, e.g. `"Local"`. */
   readonly providerName: string
   readonly id: string
-  /** Context window in tokens, when the server reported one. */
-  readonly context?: number
 }
 
 /** A model as listed by the TUI's `ctx.data.location.model.list()`. */
 interface ListedModel {
   readonly id: string
   readonly providerID: string
-  readonly limit: { readonly context: number }
 }
 
 /** A toast announcing what changed in the local models. */
 export interface ChangeToast {
   readonly message: string
   readonly variant: "info" | "warning"
-}
-
-/** What the user picked in the `/local-models` dialog. */
-export type LocalModelChoice =
-  | { readonly type: "model"; readonly providerID: string; readonly modelID: string }
-  | { readonly type: "refresh" }
-
-/** One entry of the `/local-models` dialog, in `ctx.ui.dialog.select` form. */
-export interface LocalModelOption {
-  readonly title: string
-  readonly value: LocalModelChoice
-  readonly description?: string
-  readonly footer?: string
-  readonly category?: string
-  readonly disabled?: boolean
 }
 
 /**
@@ -69,11 +50,7 @@ export function localModels(
   )
   return models.flatMap((model) => {
     const providerName = names.get(model.providerID)
-    if (!providerName) return []
-    const context = model.limit.context > 0 ? model.limit.context : undefined
-    return [
-      { providerID: model.providerID, providerName, id: model.id, ...(context ? { context } : {}) },
-    ]
+    return providerName ? [{ providerID: model.providerID, providerName, id: model.id }] : []
   })
 }
 
@@ -120,35 +97,4 @@ export function changeToast(
     message: [...added, ...removed].join("\n"),
     variant: added.length > 0 ? "info" : "warning",
   }
-}
-
-/**
- * Builds the `/local-models` dialog: one entry per model, grouped by provider
- * and showing only its id and context size, then a refresh entry.
- *
- * @param models - The local models.
- * @returns The dialog entries.
- */
-export function modelOptions(models: readonly LocalModel[]): LocalModelOption[] {
-  const refresh: LocalModelOption = { title: "↻ Refresh now", value: { type: "refresh" } }
-  if (models.length === 0) {
-    return [
-      {
-        title: "No local model found",
-        description: "Add an OpenAI-compatible provider with a baseURL to your config",
-        value: { type: "refresh" },
-        disabled: true,
-      },
-      refresh,
-    ]
-  }
-  const entries = models.map(
-    (model): LocalModelOption => ({
-      title: model.id,
-      value: { type: "model", providerID: model.providerID, modelID: model.id },
-      category: model.providerName,
-      ...(model.context ? { footer: formatTokens(model.context) } : {}),
-    })
-  )
-  return [...entries, refresh]
 }
