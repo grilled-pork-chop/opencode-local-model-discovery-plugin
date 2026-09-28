@@ -3,20 +3,20 @@ import { applyDiscoveredModels } from "../opencode-local-model/discovery/injecto
 import { fakeEditor } from "./fakes"
 
 describe("applyDiscoveredModels", () => {
-  test("writes names and limits; unknown context is 0, unknown output keeps the default", () => {
+  test("writes the name and context; the output cap keeps OpenCode's default", () => {
     const { editor, models } = fakeEditor("local")
     applyDiscoveredModels(editor, "local", [
       { id: "org/llama3", context: 131072 },
-      { id: "qwen", name: "Qwen 3", output: 8192 },
+      { id: "qwen", name: "Qwen 3" },
     ])
     expect(models.get("org/llama3")).toMatchObject({
       modelID: "org/llama3",
-      name: "llama3",
+      name: "org/llama3",
       limit: { context: 131072, output: 32_000 },
     })
     expect(models.get("qwen")).toMatchObject({
       name: "Qwen 3",
-      limit: { context: 0, output: 8192 },
+      limit: { context: 0, output: 32_000 },
     })
   })
 

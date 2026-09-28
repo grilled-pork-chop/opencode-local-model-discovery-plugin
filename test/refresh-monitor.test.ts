@@ -50,7 +50,7 @@ describe("ModelRefreshMonitor", () => {
     expect(lines).toEqual([
       {
         level: "info",
-        message: 'Discovered 2 model(s) for provider "local":\n  • a (128k ctx)\n  • b',
+        message: 'Discovered 2 model(s) for provider "local": a (128k ctx), org/b',
       },
     ])
   })
@@ -74,7 +74,7 @@ describe("ModelRefreshMonitor", () => {
     await t.monitor.poll()
     expect(t.reloads()).toBe(2)
     expect(lines).toEqual([
-      { level: "info", message: 'New model "c" discovered for provider "local"' },
+      { level: "info", message: 'New model "org/c" discovered for provider "local"' },
       { level: "warning", message: 'Model "a" removed from provider "local"' },
     ])
   })

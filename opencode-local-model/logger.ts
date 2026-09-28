@@ -8,7 +8,7 @@
  * goes through {@link log}, the one place to change if toasts are added later.
  */
 
-import { PLUGIN_ID, simplifyModelId } from "./constants"
+import { PLUGIN_ID, sanitizeModelId } from "./constants"
 import type { DiscoveredModel } from "./discovery/client"
 
 /** Prefixed log lines, one method per severity. */
@@ -25,19 +25,19 @@ export const log = {
 }
 
 /**
- * Formats discovered models into a bullet-pointed list, annotating each with
- * its context window when the server reported one.
+ * Formats discovered models on one line, annotating each with its context
+ * window when the server reported one.
  *
  * @param models - The models to list.
- * @returns A newline-separated string where each model is prefixed with `•`.
+ * @returns A comma-separated list, e.g. `llama3 (128k ctx), z-ai/glm-5.3`.
  */
-export function formatModelList(models: readonly DiscoveredModel[]): string {
+export function formatModels(models: readonly DiscoveredModel[]): string {
   return models
     .map((model) => {
-      const label = model.name ?? simplifyModelId(model.id)
-      return model.context ? `  • ${label} (${formatTokens(model.context)} ctx)` : `  • ${label}`
+      const label = model.name ?? sanitizeModelId(model.id)
+      return model.context ? `${label} (${formatTokens(model.context)} ctx)` : label
     })
-    .join("\n")
+    .join(", ")
 }
 
 /**

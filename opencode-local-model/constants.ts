@@ -49,22 +49,22 @@ export const FETCH_TIMEOUT_MS = 5_000
 export const AUTH_FAILURE_STATUS = new Set([400, 401, 403])
 
 /**
- * Simplifies a model ID to its last path segment for display.
- * (e.g. `"organization/llama3"` → `"llama3"`)
+ * Cleans a model ID for display, keeping the whole ID: trims whitespace,
+ * collapses repeated slashes and strips leading and trailing ones.
+ * (e.g. `" organization//llama3/"` → `"organization/llama3"`)
  *
  * @param id - The raw model ID.
- * @returns The simplified display name.
+ * @returns The sanitized display name.
  */
-export function simplifyModelId(id: string): string {
-  return id.replace(/\/+$/, "").split("/").pop() ?? id
+export function sanitizeModelId(id: string): string {
+  return id
+    .trim()
+    .replace(/\/{2,}/g, "/")
+    .replace(/^\/+|\/+$/g, "")
 }
 
 /**
  * Context written when a server reports none. OpenCode treats zero as an
  * unknown context and skips auto compaction rather than guessing a window.
- *
- * There is no counterpart for the output cap: when a server reports none, the
- * model keeps OpenCode's own default (32000, its `OUTPUT_TOKEN_MAX`). Zero is
- * not "unknown" there, since OpenCode takes the lower of the two.
  */
 export const UNKNOWN_CONTEXT = 0

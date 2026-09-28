@@ -1,7 +1,7 @@
-import { POLL_INTERVAL_MS, simplifyModelId } from "../constants"
+import { POLL_INTERVAL_MS, sanitizeModelId } from "../constants"
 import { type DiscoveredModel, fetchModels } from "../discovery/client"
 import type { ProviderEntry } from "../discovery/scanner"
-import { formatModelList, log } from "../logger"
+import { formatModels, log } from "../logger"
 
 /** A provider to poll, with the credential resolved for it. */
 export interface TrackedProvider {
@@ -185,9 +185,7 @@ function logDiscovered(key: string, models: readonly DiscoveredModel[]): void {
     log.warning(`No models found for provider "${key}"`)
     return
   }
-  log.info(
-    `Discovered ${models.length} model(s) for provider "${key}":\n${formatModelList(models)}`
-  )
+  log.info(`Discovered ${models.length} model(s) for provider "${key}": ${formatModels(models)}`)
 }
 
 /**
@@ -206,12 +204,12 @@ function logChanges(
   const after = new Set(current.map((model) => model.id))
   for (const id of after) {
     if (!before.has(id)) {
-      log.info(`New model "${simplifyModelId(id)}" discovered for provider "${key}"`)
+      log.info(`New model "${sanitizeModelId(id)}" discovered for provider "${key}"`)
     }
   }
   for (const id of before) {
     if (!after.has(id)) {
-      log.warning(`Model "${simplifyModelId(id)}" removed from provider "${key}"`)
+      log.warning(`Model "${sanitizeModelId(id)}" removed from provider "${key}"`)
     }
   }
 }

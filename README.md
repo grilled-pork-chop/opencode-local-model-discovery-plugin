@@ -86,9 +86,7 @@ toasts, so the plugin reports to the OpenCode log instead
 
 ```
 [local-model-discovery] Discovering models for provider "local"
-[local-model-discovery] Discovered 2 model(s) for provider "local":
-  • llama3 (128k ctx)
-  • glm-5.3
+[local-model-discovery] Discovered 2 model(s) for provider "local": llama3 (128k ctx), z-ai/glm-5.3
 [local-model-discovery] New model "qwen3-coder" discovered for provider "local"
 [local-model-discovery] Model "llama3" removed from provider "local"
 [local-model-discovery] Model discovery failed for provider "local": Unable to connect. …
@@ -175,12 +173,12 @@ Field names differ between servers, so several are checked in order:
 | Entry | Fields checked, in order |
 |---|---|
 | `limit.context` | `max_model_len` (vLLM), `context_length` (OpenRouter, Modal), `max_context_length` (LM Studio), `context_window`, `meta.n_ctx_train` (llama.cpp) |
-| `limit.output` | `max_output_length`, `max_completion_tokens`, `max_output_tokens`, `top_provider.max_completion_tokens` |
-| `name` | the server's own `name`, else the last path segment of the id |
+| `name` | the server's own `name`, else the full model id |
 
 A context the server does not report is written as `0`, which OpenCode treats as
-unknown: it skips auto compaction rather than guessing a window. An output cap
-the server does not report keeps OpenCode's default (32000 tokens).
+unknown: it skips auto compaction rather than guessing a window. The output cap
+is left to OpenCode's default (32000 tokens), since `/v1/models` does not report
+one.
 
 ## Known models
 

@@ -4,7 +4,7 @@
  * Writes discovered models into OpenCode's model registry.
  */
 
-import { UNKNOWN_CONTEXT, simplifyModelId } from "../constants"
+import { UNKNOWN_CONTEXT, sanitizeModelId } from "../constants"
 import type { ModelDraft, ModelEditorLike } from "../types"
 import type { DiscoveredModel } from "./client"
 import { knownModelConfig } from "./known-models"
@@ -38,20 +38,18 @@ export function applyDiscoveredModels(
 /**
  * Writes one discovered model into the draft OpenCode created for it.
  *
- * Limits come from the endpoint when the server publishes them, for example
- * vLLM's `max_model_len`. An unreported context is written as
- * {@link UNKNOWN_CONTEXT}; an unreported output cap keeps OpenCode's default.
- * The display name is the server's own `name` when there is one, else the last
- * path segment of the ID (e.g. `"organization/llama3"` → `"llama3"`).
+ * The context window comes from the endpoint when the server publishes it, for
+ * example vLLM's `max_model_len`, and is {@link UNKNOWN_CONTEXT} otherwise. The
+ * output cap is left to OpenCode's default. The display name is the server's
+ * own `name` when there is one, else the sanitized model ID.
  *
  * @param draft - The model draft, pre-filled with OpenCode's defaults.
  * @param model - A model returned by {@link fetchModels}.
  */
 function fillModel(draft: ModelDraft, model: DiscoveredModel): void {
   draft.modelID = model.id
-  draft.name = model.name ?? simplifyModelId(model.id)
+  draft.name = model.name ?? sanitizeModelId(model.id)
   draft.limit.context = model.context ?? UNKNOWN_CONTEXT
-  if (model.output !== undefined) draft.limit.output = model.output
 
   const known = knownModelConfig(model.id)
   if (known?.settings) draft.settings = { ...draft.settings, ...known.settings }
