@@ -46,6 +46,8 @@ export interface ModelEditorLike {
 /** A provider as listed by `ctx.provider.list()`, reduced to what the scanner reads. */
 export interface ProviderInfo {
   readonly id: string
+  /** Display name, e.g. `"Local"`. */
+  readonly name?: string
   readonly package: string
   /** Set on OpenCode's own providers; absent on those declared in the config. */
   readonly integrationID?: string

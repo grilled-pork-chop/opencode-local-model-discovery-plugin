@@ -77,12 +77,40 @@ works too:
 
 A trailing `/v1` (or `/v1/`) on the `baseURL` is handled automatically.
 
+## In the terminal UI
+
+The folder also holds a TUI plugin (`tui.ts`), which OpenCode loads in the
+terminal UI next to the discovery plugin:
+
+- **Change toasts.** When models are added or removed, one toast says what
+  changed, grouped per provider:
+
+  ```
+  Local models
+  qwen3-coder is now available on Local
+  2 models removed from Local: phi-4, gemma-3
+  ```
+
+- **`/local-models`**, also in the command palette (`ctrl+p`). It lists the
+  discovered models grouped by provider, with their context size when the
+  server reports one. Pick a model to switch the current session to it, or
+  **↻ Refresh now** to fetch every provider's models again right away.
+
+  ```
+  Local models                        esc
+  Search models
+  Local
+  llama3                             128k
+  z-ai/glm-5.3
+  ↻ Refresh now
+  ```
+
 ## Logs
 
-OpenCode V2 runs plugins in its background service, which cannot show TUI
-toasts, so the plugin reports to the OpenCode log instead
-(`~/.local/share/opencode/log/opencode.log`, or the terminal with
-`opencode serve --print-logs`):
+The discovery plugin runs in OpenCode's background service and reports there,
+in the OpenCode log (`~/.local/share/opencode/log/opencode.log`, or the
+terminal with `opencode serve --print-logs`), including the errors the TUI does
+not show:
 
 ```
 [local-model-discovery] Discovering models for provider "local"
@@ -128,12 +156,14 @@ live refresh without a real model server. It needs [Bun](https://bun.sh).
    }
    ```
 
-3. Start `opencode` and open the model picker: `mock/llama3` and
-   `mock/z-ai/glm-5.3` are there, and a message to either gets a canned reply.
+3. Start `opencode` and type `/local-models`: `llama3` and `z-ai/glm-5.3`
+   are listed under Mock. Open a session, pick one, and a message gets a canned
+   reply.
 
 4. While OpenCode runs, edit `scripts/mock-models.json`, for example add
    `{ "id": "qwen3-coder", "context_length": 262144 }` or delete `llama3`. Within
-   about 15 seconds the picker shows the change, and the log says so:
+   about 15 seconds a toast announces the change, `/local-models` shows it, and
+   the log says so:
 
    ```
    [local-model-discovery] New model "qwen3-coder" discovered for provider "mock"
