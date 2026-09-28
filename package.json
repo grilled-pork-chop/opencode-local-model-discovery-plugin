@@ -17,6 +17,7 @@
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",
     "@opencode-ai/plugin": "^0.4.0",
+    "@types/node": "^22",
     "typescript": "^5.7.0"
   },
   "trustedDependencies": ["@biomejs/biome"]

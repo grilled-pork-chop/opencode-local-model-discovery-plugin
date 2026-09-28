@@ -20,6 +20,13 @@ export const POLL_INTERVAL_MS = 15_000
 export const FETCH_TIMEOUT_MS = 5_000
 
 /**
+ * HTTP statuses that mean the provider refused the credential. 401 and 403 are
+ * the standard answers; some OpenAI-compatible servers use 400 for a missing or
+ * malformed `Authorization` header instead.
+ */
+export const AUTH_FAILURE_STATUS = new Set([400, 401, 403])
+
+/**
  * Timeout for each notifier display by {@link Notifier}.
  */
 export const NOTIFIER_TIMEOUT_MS = 1_000
@@ -34,3 +41,19 @@ export const NOTIFIER_TIMEOUT_MS = 1_000
 export function simplifyModelId(id: string): string {
   return id.replace(/\/+$/, "").split("/").pop() ?? id
 }
+
+/**
+ * Context written when a server reports none. This is OpenCode's own marker for
+ * an unknown context: it disables auto compaction (`session/overflow.ts`)
+ * rather than guessing a window.
+ */
+export const UNKNOWN_CONTEXT = 0
+
+/**
+ * Output cap written when a server reports none. Zero hands the decision to
+ * OpenCode, which applies its own `OUTPUT_TOKEN_MAX` and lets
+ * `OPENCODE_EXPERIMENTAL_OUTPUT_TOKEN_MAX` raise or lower it. A fixed number
+ * here would be a ceiling nothing could lift, because OpenCode takes the lower
+ * of the two.
+ */
+export const DEFAULT_OUTPUT_LIMIT = 0
