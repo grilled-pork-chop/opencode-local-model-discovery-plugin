@@ -86,6 +86,35 @@ makes OpenCode apply its own `OUTPUT_TOKEN_MAX` (32000), tunable with
 would cap the model at that value permanently, since OpenCode takes the lower of
 the two.
 
+## Known models
+
+`/v1/models` never reports whether a model reasons or which effort levels it
+accepts, so that is kept as a static table in
+`opencode-local-model/discovery/known-models.ts`, matched against the model id
+case-insensitively. A matching model gets the entry's config merged into its
+discovered one:
+
+```ts
+const KNOWN_MODELS: readonly KnownModel[] = [
+  {
+    match: /glm[\s._-]?5[\s._-]?3/i,
+    config: {
+      reasoning: true,
+      options: { reasoningEffort: "max" },
+      variants: {
+        low: { reasoningEffort: "low" },
+        high: { reasoningEffort: "high" },
+        max: { reasoningEffort: "max" },
+      },
+    },
+  },
+]
+```
+
+So `z-ai/glm-5.3`, `GLM-5.3-FLASH` and `glm_5_3` all pick it up, while `glm-5.2`
+and `glm-4.6` do not. Add an entry to support another model; the first match
+wins, so put more specific patterns first.
+
 ## Authenticated servers
 
 If your server requires a token on `/v1/models` and completions, store it with

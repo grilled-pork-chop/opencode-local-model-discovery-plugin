@@ -1,5 +1,6 @@
 import { DEFAULT_OUTPUT_LIMIT, UNKNOWN_CONTEXT, simplifyModelId } from "../constants"
 import type { DiscoveredModel } from "./client"
+import { knownModelConfig } from "./known-models"
 
 /**
  * Replaces a provider's `models` map with the models returned by the API.
@@ -39,5 +40,6 @@ function buildModelEntry(model: DiscoveredModel): Record<string, unknown> {
       context: model.context ?? UNKNOWN_CONTEXT,
       output: model.output ?? DEFAULT_OUTPUT_LIMIT,
     },
+    ...knownModelConfig(model.id),
   }
 }
