@@ -15,5 +15,5 @@
     "forceConsistentCasingInFileNames": true,
     "verbatimModuleSyntax": true
   },
-  "include": ["opencode-local-model/**/*.ts", "test/**/*.ts"]
+  "include": ["opencode-local-model/**/*.ts", "test/**/*.ts", "scripts/**/*.ts"]
 }

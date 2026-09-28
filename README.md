@@ -98,6 +98,67 @@ toasts, so the plugin reports to the OpenCode log instead
 A server that stays down is reported once, and its last known models stay
 available until it comes back.
 
+## Try it with the mock server
+
+The repo ships a mock OpenAI-compatible server, so you can watch discovery and
+live refresh without a real model server. It needs [Bun](https://bun.sh).
+
+1. Start the mock, which listens on `http://127.0.0.1:18080/v1`:
+
+   ```bash
+   bun run mock
+   ```
+
+   On first run it creates `scripts/mock-models.json` with two models, and it
+   logs every request, so you can see the plugin polling every 15 seconds.
+
+2. Install the plugin and point a provider at the mock in `opencode.jsonc`:
+
+   ```bash
+   cp -r opencode-local-model ~/.config/opencode/plugins/
+   ```
+
+   ```jsonc
+   {
+     "provider": {
+       "mock": {
+         "npm": "@ai-sdk/openai-compatible",
+         "name": "Mock",
+         "options": { "baseURL": "http://127.0.0.1:18080/v1" }
+       }
+     }
+   }
+   ```
+
+3. Start `opencode` and open the model picker: `mock/llama3` and
+   `mock/z-ai/glm-5.3` are there, and a message to either gets a canned reply.
+
+4. While OpenCode runs, edit `scripts/mock-models.json`, for example add
+   `{ "id": "qwen3-coder", "context_length": 262144 }` or delete `llama3`. Within
+   about 15 seconds the picker shows the change, and the log says so:
+
+   ```
+   [local-model-discovery] New model "qwen3-coder" discovered for provider "mock"
+   [local-model-discovery] Model "llama3" removed from provider "mock"
+   ```
+
+5. Stop the mock (Ctrl+C) to see one error line while the models stay listed;
+   start it again to see `Provider "mock" is reachable again`.
+
+To try authentication, start it with `MOCK_API_KEY=secret bun run mock`: the
+plugin logs a 401 until you add `"apiKey": "secret"` to the provider's
+`options`, which it picks up without a restart. `MOCK_PORT` and `MOCK_MODELS`
+change the port and the models file.
+
+To keep your real OpenCode setup untouched, run the test against a throwaway
+config directory instead, putting the plugin in
+`/tmp/olmd-config/opencode/plugins/` and the config in
+`/tmp/olmd-config/opencode/opencode.jsonc`:
+
+```bash
+XDG_CONFIG_HOME=/tmp/olmd-config opencode
+```
+
 ## Model metadata
 
 Limits come from the endpoint when the server publishes them, so a vLLM entry
