@@ -5,8 +5,27 @@
  * @module
  */
 
-/** npm package identifier for the OpenAI-compatible AI SDK adapter. */
-export const OPENAI_COMPATIBLE_NPM = "@ai-sdk/openai-compatible"
+/** Plugin id registered with OpenCode, also used as the log prefix. */
+export const PLUGIN_ID = "local-model-discovery"
+
+/**
+ * Substring identifying an OpenAI-compatible provider package. V2 reports a
+ * V1 `npm: "@ai-sdk/openai-compatible"` provider as
+ * `aisdk:@ai-sdk/openai-compatible` and a native one as
+ * `@opencode/ai/providers/openai-compatible`; both contain it.
+ */
+export const OPENAI_COMPATIBLE_PACKAGE = "openai-compatible"
+
+/**
+ * Provider ids whose models OpenCode V2 already discovers with its own
+ * built-in plugins. Two transforms rewriting the same provider would fight,
+ * so these are left to OpenCode.
+ */
+export const BUILTIN_DISCOVERY_PROVIDERS: ReadonlySet<string> = new Set([
+  "ollama",
+  "lmstudio",
+  "vllm",
+])
 
 /**
  * Interval between background model-list polls performed by {@link ModelRefreshMonitor}.
@@ -27,11 +46,6 @@ export const FETCH_TIMEOUT_MS = 5_000
 export const AUTH_FAILURE_STATUS = new Set([400, 401, 403])
 
 /**
- * Timeout for each notifier display by {@link Notifier}.
- */
-export const NOTIFIER_TIMEOUT_MS = 1_000
-
-/**
  * Simplifies a model ID to its last path segment for display.
  * (e.g. `"organization/llama3"` → `"llama3"`)
  *
@@ -43,17 +57,11 @@ export function simplifyModelId(id: string): string {
 }
 
 /**
- * Context written when a server reports none. This is OpenCode's own marker for
- * an unknown context: it disables auto compaction (`session/overflow.ts`)
- * rather than guessing a window.
+ * Context written when a server reports none. OpenCode treats zero as an
+ * unknown context and skips auto compaction rather than guessing a window.
+ *
+ * There is no counterpart for the output cap: when a server reports none, the
+ * model keeps OpenCode's own default (32000, its `OUTPUT_TOKEN_MAX`). Zero is
+ * not "unknown" there, since OpenCode takes the lower of the two.
  */
 export const UNKNOWN_CONTEXT = 0
-
-/**
- * Output cap written when a server reports none. Zero hands the decision to
- * OpenCode, which applies its own `OUTPUT_TOKEN_MAX` and lets
- * `OPENCODE_EXPERIMENTAL_OUTPUT_TOKEN_MAX` raise or lower it. A fixed number
- * here would be a ceiling nothing could lift, because OpenCode takes the lower
- * of the two.
- */
-export const DEFAULT_OUTPUT_LIMIT = 0

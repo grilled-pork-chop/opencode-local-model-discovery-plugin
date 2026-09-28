@@ -11,10 +11,20 @@
  * specific patterns first.
  */
 
+import type { ModelSettings, ModelVariant } from "../types"
+
+/** Config applied to a matching model, in OpenCode V2's model shape. */
+export interface KnownModelConfig {
+  /** Default request settings, e.g. `{ reasoningEffort: "max" }`. */
+  readonly settings?: ModelSettings
+  /** Selectable variants, each overriding the default settings. */
+  readonly variants?: readonly ModelVariant[]
+}
+
 /** A model id pattern and the config applied to every model it matches. */
 interface KnownModel {
   readonly match: RegExp
-  readonly config: Record<string, unknown>
+  readonly config: KnownModelConfig
 }
 
 const KNOWN_MODELS: readonly KnownModel[] = [
@@ -22,13 +32,12 @@ const KNOWN_MODELS: readonly KnownModel[] = [
     // glm-5.3, GLM_5_3, z-ai/glm-5.3-flash, ...
     match: /glm[\s._-]?5[\s._-]?3/i,
     config: {
-      reasoning: true,
-      options: { reasoningEffort: "max" },
-      variants: {
-        low: { reasoningEffort: "low" },
-        high: { reasoningEffort: "high" },
-        max: { reasoningEffort: "max" },
-      },
+      settings: { reasoningEffort: "max" },
+      variants: [
+        { id: "low", settings: { reasoningEffort: "low" } },
+        { id: "high", settings: { reasoningEffort: "high" } },
+        { id: "max", settings: { reasoningEffort: "max" } },
+      ],
     },
   },
 ]
@@ -38,6 +47,6 @@ const KNOWN_MODELS: readonly KnownModel[] = [
  *
  * @param id - The raw model ID reported by the server.
  */
-export function knownModelConfig(id: string): Record<string, unknown> | undefined {
+export function knownModelConfig(id: string): KnownModelConfig | undefined {
   return KNOWN_MODELS.find((known) => known.match.test(id))?.config
 }
