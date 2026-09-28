@@ -5,8 +5,30 @@
  * @module
  */
 
-/** npm package identifier for the OpenAI-compatible AI SDK adapter. */
+/** Plugin id registered with OpenCode, also used as the log prefix. */
+export const PLUGIN_ID = "local-model-discovery"
+
+/** npm package identifier for the OpenAI-compatible AI SDK adapter, as users write it. */
 export const OPENAI_COMPATIBLE_NPM = "@ai-sdk/openai-compatible"
+
+/**
+ * Substring identifying an OpenAI-compatible provider package. V2 reports a
+ * V1 `npm: "@ai-sdk/openai-compatible"` provider as
+ * `aisdk:@ai-sdk/openai-compatible` and a native one as
+ * `@opencode/ai/providers/openai-compatible`; both contain it.
+ */
+export const OPENAI_COMPATIBLE_PACKAGE = "openai-compatible"
+
+/**
+ * Provider ids whose models OpenCode V2 already discovers with its own
+ * built-in plugins. Two transforms rewriting the same provider would fight,
+ * so these are left to OpenCode.
+ */
+export const BUILTIN_DISCOVERY_PROVIDERS: ReadonlySet<string> = new Set([
+  "ollama",
+  "lmstudio",
+  "vllm",
+])
 
 /**
  * Interval between background model-list polls performed by {@link ModelRefreshMonitor}.
@@ -27,33 +49,22 @@ export const FETCH_TIMEOUT_MS = 5_000
 export const AUTH_FAILURE_STATUS = new Set([400, 401, 403])
 
 /**
- * Timeout for each notifier display by {@link Notifier}.
- */
-export const NOTIFIER_TIMEOUT_MS = 1_000
-
-/**
- * Simplifies a model ID to its last path segment for display.
- * (e.g. `"organization/llama3"` → `"llama3"`)
+ * Cleans a model ID for display, keeping the whole ID: trims whitespace,
+ * collapses repeated slashes and strips leading and trailing ones.
+ * (e.g. `" organization//llama3/"` → `"organization/llama3"`)
  *
  * @param id - The raw model ID.
- * @returns The simplified display name.
+ * @returns The sanitized display name.
  */
-export function simplifyModelId(id: string): string {
-  return id.replace(/\/+$/, "").split("/").pop() ?? id
+export function sanitizeModelId(id: string): string {
+  return id
+    .trim()
+    .replace(/\/{2,}/g, "/")
+    .replace(/^\/+|\/+$/g, "")
 }
 
 /**
- * Context written when a server reports none. This is OpenCode's own marker for
- * an unknown context: it disables auto compaction (`session/overflow.ts`)
- * rather than guessing a window.
+ * Context written when a server reports none. OpenCode treats zero as an
+ * unknown context and skips auto compaction rather than guessing a window.
  */
 export const UNKNOWN_CONTEXT = 0
-
-/**
- * Output cap written when a server reports none. Zero hands the decision to
- * OpenCode, which applies its own `OUTPUT_TOKEN_MAX` and lets
- * `OPENCODE_EXPERIMENTAL_OUTPUT_TOKEN_MAX` raise or lower it. A fixed number
- * here would be a ceiling nothing could lift, because OpenCode takes the lower
- * of the two.
- */
-export const DEFAULT_OUTPUT_LIMIT = 0

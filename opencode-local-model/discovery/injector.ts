@@ -1,45 +1,57 @@
-import { DEFAULT_OUTPUT_LIMIT, UNKNOWN_CONTEXT, simplifyModelId } from "../constants"
+/**
+ * @module discovery/injector
+ *
+ * Writes discovered models into OpenCode's model registry.
+ */
+
+import { UNKNOWN_CONTEXT, sanitizeModelId } from "../constants"
+import type { ModelDraft, ModelEditorLike } from "../types"
 import type { DiscoveredModel } from "./client"
 import { knownModelConfig } from "./known-models"
 
 /**
- * Replaces a provider's `models` map with the models returned by the API.
+ * Replaces a provider's models with the models returned by the API.
  * The API is treated as the sole source of truth, so models no longer
- * served by the provider are removed from the config.
+ * served by the provider are removed.
  *
- * @param config      - The raw config object passed to the {@link ConfigHook}.
- * @param providerKey - The provider key whose `models` map is replaced.
+ * Runs inside a `ctx.model.transform` callback, which OpenCode may replay
+ * at any time: it must stay synchronous, deterministic and side-effect free.
+ *
+ * @param editor      - The model editor handed to the transform.
+ * @param providerKey - The provider whose models are replaced.
  * @param models      - The models returned by {@link fetchModels} for this provider.
  */
 export function applyDiscoveredModels(
-  config: unknown,
+  editor: ModelEditorLike,
   providerKey: string,
-  models: DiscoveredModel[]
+  models: readonly DiscoveredModel[]
 ): void {
-  const providers = (config as Record<string, unknown>).provider as Record<string, unknown>
-  const provider = providers[providerKey] as Record<string, unknown>
-  provider.models = Object.fromEntries(models.map((model) => [model.id, buildModelEntry(model)]))
+  const served = new Set(models.map((model) => model.id))
+  for (const { id } of editor.list(providerKey)) {
+    if (!served.has(id)) editor.remove(providerKey, id)
+  }
+  for (const model of models) {
+    editor.update(providerKey, model.id, (draft) => fillModel(draft, model))
+  }
 }
 
 /**
- * Builds a model entry object for injection into a provider's `models` map.
+ * Writes one discovered model into the draft OpenCode created for it.
  *
- * Limits come from the endpoint when the server publishes them, for example
- * vLLM's `max_model_len`, and fall back to {@link UNKNOWN_CONTEXT} and
- * {@link DEFAULT_OUTPUT_LIMIT} otherwise. The display name is the server's own
- * `name` when there is one, else the last path segment of the ID
- * (e.g. `"organization/llama3"` → `"llama3"`).
+ * The context window comes from the endpoint when the server publishes it, for
+ * example vLLM's `max_model_len`, and is {@link UNKNOWN_CONTEXT} otherwise. The
+ * output cap is left to OpenCode's default. The display name is the server's
+ * own `name` when there is one, else the sanitized model ID.
  *
+ * @param draft - The model draft, pre-filled with OpenCode's defaults.
  * @param model - A model returned by {@link fetchModels}.
- * @returns A model entry with a display name and token limits.
  */
-function buildModelEntry(model: DiscoveredModel): Record<string, unknown> {
-  return {
-    name: model.name ?? simplifyModelId(model.id),
-    limit: {
-      context: model.context ?? UNKNOWN_CONTEXT,
-      output: model.output ?? DEFAULT_OUTPUT_LIMIT,
-    },
-    ...knownModelConfig(model.id),
-  }
+function fillModel(draft: ModelDraft, model: DiscoveredModel): void {
+  draft.modelID = model.id
+  draft.name = model.name ?? sanitizeModelId(model.id)
+  draft.limit.context = model.context ?? UNKNOWN_CONTEXT
+
+  const known = knownModelConfig(model.id)
+  if (known?.settings) draft.settings = { ...draft.settings, ...known.settings }
+  if (known?.variants) draft.variants = known.variants.map((variant) => ({ ...variant }))
 }

@@ -1,35 +1,47 @@
 # opencode-local-model-discovery-plugin
 
-An [OpenCode](https://opencode.ai) plugin that **auto-discovers models** from any
-OpenAI-compatible provider you already have configured, with no need to
-hand-maintain a `models` list. Point it at a local server (Ollama, llama.cpp, vLLM, LM Studio,
-LocalAI, …) and every model the server exposes shows up in OpenCode, kept in sync
-while you work.
+An [OpenCode](https://opencode.ai) V2 plugin that **auto-discovers models** from
+any OpenAI-compatible provider you already have configured, with no need to
+hand-maintain a `models` list. Point it at a local server (llama.cpp, LocalAI,
+LiteLLM, a vLLM or LM Studio behind a custom name, …) and every model the server
+exposes shows up in OpenCode, **kept in sync while you work**: a model you pull
+appears in the model picker, and one you delete disappears, without restarting
+OpenCode.
+
+> Requires OpenCode **2.0.10 or later**. For OpenCode V1, use the
+> [`v0.1.0-opencode-v1`](../../tree/v0.1.0-opencode-v1) tag.
 
 ## How it works
 
-The plugin scans your OpenCode config for any provider using the
-`@ai-sdk/openai-compatible` adapter with an `options.baseURL`, then:
+The plugin looks at the providers declared in your OpenCode config that use the
+OpenAI-compatible adapter with a `baseURL`, then:
 
-1. **Discover**: fetches `GET {baseURL}/v1/models` and filters to usable chat
-   models, authenticated when the provider has a credential, reading each
-   model's reported limits along the way.
-2. **Inject**: replaces the provider's `models` map with what the server reports
-   (the API is the source of truth, so removed models drop out too).
-3. **Poll**: re-checks every 15 seconds in the background and toasts whenever a
-   model is added or removed, so a freshly-pulled model appears without a restart.
+1. **Discover**: fetches `GET {baseURL}/v1/models`, authenticated when the
+   provider has a credential, reading each model's reported limits along the way.
+2. **Inject**: replaces the provider's models with what the server reports (the
+   API is the source of truth, so removed models drop out too).
+3. **Refresh**: re-checks every 15 seconds in the background. When the list
+   changes, OpenCode's model registry is reloaded, so the change shows up
+   immediately. Editing the config (adding a provider, changing a `baseURL`) is
+   picked up the same way.
 
-Discovery results (and any errors) are surfaced as TUI toasts. If no compatible
-provider is found, the plugin does nothing.
+Only providers you declared yourself are touched. OpenCode's own catalog
+providers (`opencode`, `github-copilot`, the models.dev catalog) keep their
+curated model lists, and providers named `ollama`, `lmstudio` or `vllm` are left
+to OpenCode V2's built-in discovery for those servers.
 
 ## Install
 
-Drop the plugin into your OpenCode plugin directory:
+Copy the `opencode-local-model` folder into your OpenCode plugins directory:
 
 ```bash
-git clone https://github.com/grilled-pork-chop/opencode-local-model-discovery-plugin \
-  ~/.config/opencode/plugin/opencode-local-model-discovery-plugin
+git clone https://github.com/grilled-pork-chop/opencode-local-model-discovery-plugin /tmp/olmd
+cp -r /tmp/olmd/opencode-local-model ~/.config/opencode/plugins/
 ```
+
+OpenCode loads the folder through its `index.ts`; nothing needs to be installed.
+Coming from V1? Delete the old `opencode-local.ts` from your plugin directory, or
+OpenCode would load it as a second plugin.
 
 Then declare an OpenAI-compatible provider in your `opencode.jsonc`. The plugin
 fills in the `models` for you:
@@ -41,15 +53,124 @@ fills in the `models` for you:
       "npm": "@ai-sdk/openai-compatible",
       "name": "Local",
       "options": {
-        "baseURL": "http://localhost:11434/v1"
+        "baseURL": "http://localhost:8080/v1"
       }
     }
   }
 }
 ```
 
-Start OpenCode and you'll get a toast listing the discovered models. A trailing
-`/v1` (or `/v1/`) on the `baseURL` is handled automatically.
+This is the V1 config format, which OpenCode V2 still reads. The native V2 form
+works too:
+
+```jsonc
+{
+  "providers": {
+    "local": {
+      "name": "Local",
+      "package": "@opencode/ai/providers/openai-compatible",
+      "settings": { "baseURL": "http://localhost:8080/v1" }
+    }
+  }
+}
+```
+
+A trailing `/v1` (or `/v1/`) on the `baseURL` is handled automatically.
+
+## In the terminal UI
+
+The folder also holds a small TUI plugin (`tui.ts`), which OpenCode loads in the
+terminal UI next to the discovery plugin. When models are added or removed, it
+shows one toast saying what changed, grouped per provider:
+
+```
+Local models
+qwen3-coder is now available on Local
+2 models removed from Local: phi-4, gemma-3
+```
+
+The discovered models themselves are in OpenCode's own model picker (`/models`).
+
+## Logs
+
+The discovery plugin runs in OpenCode's background service and reports there,
+in the OpenCode log (`~/.local/share/opencode/log/opencode.log`, or the
+terminal with `opencode serve --print-logs`), including the errors the TUI does
+not show:
+
+```
+[local-model-discovery] Discovering models for provider "local"
+[local-model-discovery] Discovered 2 model(s) for provider "local": llama3 (128k ctx), z-ai/glm-5.3
+[local-model-discovery] New model "qwen3-coder" discovered for provider "local"
+[local-model-discovery] Model "llama3" removed from provider "local"
+[local-model-discovery] Model discovery failed for provider "local": Unable to connect. …
+[local-model-discovery] Provider "local" is reachable again
+```
+
+A server that stays down is reported once, and its last known models stay
+available until it comes back.
+
+## Try it with the mock server
+
+The repo ships a mock OpenAI-compatible server, so you can watch discovery and
+live refresh without a real model server. It needs [Bun](https://bun.sh).
+
+1. Start the mock, which listens on `http://127.0.0.1:18080/v1`:
+
+   ```bash
+   bun run mock
+   ```
+
+   On first run it creates `scripts/mock-models.json` with two models, and it
+   logs every request, so you can see the plugin polling every 15 seconds.
+
+2. Install the plugin and point a provider at the mock in `opencode.jsonc`:
+
+   ```bash
+   cp -r opencode-local-model ~/.config/opencode/plugins/
+   ```
+
+   ```jsonc
+   {
+     "provider": {
+       "mock": {
+         "npm": "@ai-sdk/openai-compatible",
+         "name": "Mock",
+         "options": { "baseURL": "http://127.0.0.1:18080/v1" }
+       }
+     }
+   }
+   ```
+
+3. Start `opencode` and type `/models`: `llama3` and `z-ai/glm-5.3` are
+   listed under Mock, and a message to either gets a canned reply.
+
+4. While OpenCode runs, edit `scripts/mock-models.json`, for example add
+   `{ "id": "qwen3-coder", "context_length": 262144 }` or delete `llama3`. Within
+   about 15 seconds a toast announces the change, `/models` shows it, and the
+   log says so:
+
+   ```
+   [local-model-discovery] New model "qwen3-coder" discovered for provider "mock"
+   [local-model-discovery] Model "llama3" removed from provider "mock"
+   ```
+
+5. Stop the mock (Ctrl+C) to see one error line while the models stay listed;
+   start it again to see `Provider "mock" is reachable again`.
+
+To try authentication, start it with `MOCK_API_KEY=secret bun run mock`: the
+plugin logs a 401 until you add `"apiKey": "secret"` to the provider's
+`options`, which it picks up without a restart. `MOCK_PORT` and `MOCK_MODELS`
+change the port and the models file.
+
+To keep your real OpenCode setup untouched, run the test against a throwaway
+config directory instead, putting the plugin in
+`/tmp/olmd-config/opencode/plugins/` and the config in
+`/tmp/olmd-config/opencode/opencode.jsonc`:
+
+```bash
+XDG_CONFIG_HOME=/tmp/olmd-config opencode
+```
 
 ## Model metadata
 
@@ -60,52 +181,39 @@ like this:
 { "id": "DeepSeek-V4.1-Flash", "owned_by": "vllm", "max_model_len": 131072 }
 ```
 
-becomes:
-
-```jsonc
-"models": {
-  "DeepSeek-V4.1-Flash": {
-    "name": "DeepSeek-V4.1-Flash",
-    "limit": { "context": 131072, "output": 0 }
-  }
-}
-```
+becomes a model named `DeepSeek-V4.1-Flash` with a 131072-token context.
 
 Field names differ between servers, so several are checked in order:
 
 | Entry | Fields checked, in order |
 |---|---|
 | `limit.context` | `max_model_len` (vLLM), `context_length` (OpenRouter, Modal), `max_context_length` (LM Studio), `context_window`, `meta.n_ctx_train` (llama.cpp) |
-| `limit.output` | `max_output_length`, `max_completion_tokens`, `max_output_tokens`, `top_provider.max_completion_tokens` |
-| `name` | the server's own `name`, else the last path segment of the id |
+| `name` | the server's own `name`, else the full model id |
 
-Anything a server does not report falls back to `0`, which is OpenCode's marker
-for unknown: a zero context disables auto compaction, and a zero output cap
-makes OpenCode apply its own `OUTPUT_TOKEN_MAX` (32000), tunable with
-`OPENCODE_EXPERIMENTAL_OUTPUT_TOKEN_MAX`. Writing a fixed number here instead
-would cap the model at that value permanently, since OpenCode takes the lower of
-the two.
+A context the server does not report is written as `0`, which OpenCode treats as
+unknown: it skips auto compaction rather than guessing a window. The output cap
+is left to OpenCode's default (32000 tokens), since `/v1/models` does not report
+one.
 
 ## Known models
 
 `/v1/models` never reports whether a model reasons or which effort levels it
 accepts, so that is kept as a static table in
 `opencode-local-model/discovery/known-models.ts`, matched against the model id
-case-insensitively. A matching model gets the entry's config merged into its
-discovered one:
+case-insensitively. A matching model gets the entry's settings and variants, in
+OpenCode V2's model shape:
 
 ```ts
 const KNOWN_MODELS: readonly KnownModel[] = [
   {
     match: /glm[\s._-]?5[\s._-]?3/i,
     config: {
-      reasoning: true,
-      options: { reasoningEffort: "max" },
-      variants: {
-        low: { reasoningEffort: "low" },
-        high: { reasoningEffort: "high" },
-        max: { reasoningEffort: "max" },
-      },
+      settings: { reasoningEffort: "max" },
+      variants: [
+        { id: "low", settings: { reasoningEffort: "low" } },
+        { id: "high", settings: { reasoningEffort: "high" } },
+        { id: "max", settings: { reasoningEffort: "max" } },
+      ],
     },
   },
 ]
@@ -118,37 +226,23 @@ wins, so put more specific patterns first.
 ## Authenticated servers
 
 If your server requires a token on `/v1/models` and completions, store it with
-`opencode auth login`:
-
-```bash
-opencode auth login
-# Select provider → Other
-# Enter provider id → local        ← must match the key in your config
-# API key          → •••
-```
-
+`opencode auth login`, choosing the provider id from your config (`local` above).
 OpenCode passes that credential to the provider for completions, and the plugin
-reads it back for discovery, so both are authenticated from one login. **The
-provider id you type has to match the provider key in your config exactly**. A
-mismatch stores an orphan credential and discovery fails.
+reads it back through OpenCode's credential API for discovery, so both are
+authenticated from one login.
 
-Alternatively, set `options.apiKey` in the config, which takes precedence and
-supports OpenCode's `{env:VAR}` and `{file:path}` substitutions:
+Alternatively, set `options.apiKey` (V1 format) or `settings.apiKey` (V2 format)
+in the config, which takes precedence and supports OpenCode's `{env:VAR}` and
+`{file:path}` substitutions:
 
 ```jsonc
 "options": {
-  "baseURL": "http://localhost:11434/v1",
+  "baseURL": "http://localhost:8080/v1",
   "apiKey": "{env:LOCAL_API_TOKEN}"
 }
 ```
 
-Credentials are read from OpenCode's `auth.json` (`$XDG_DATA_HOME/opencode`,
-defaulting to `~/.local/share/opencode`), or from `OPENCODE_AUTH_CONTENT` when
-set, matching OpenCode's own lookup order. OpenCode exposes no read API for
-credentials and hands them to plugins only after the config hook has run, so
-reading the file is the only way to authenticate discovery. Any failure to read
-it degrades to "no credential", which surfaces as a 401 toast pointing at
-`opencode auth login`.
+A rejected credential (HTTP 400, 401 or 403) is reported in the log.
 
 ## Development
 
@@ -159,10 +253,15 @@ bun install
 bun run lint        # Biome: lint + format check
 bun run format      # Biome: apply fixes
 bun run typecheck   # tsc --noEmit
+bun run test        # bun test
+bun run mock        # mock OpenAI-compatible server, see above
 ```
 
-CI (`.github/workflows/ci.yml`) runs Biome and the type check on every push and
-pull request.
+`@opencode/plugin` is a dev dependency for types only; the plugin imports
+nothing from it at runtime, which is what lets it load from a copied folder.
+
+CI (`.github/workflows/ci.yml`) runs Biome, the type check and the tests on
+every push and pull request.
 
 ## License
 

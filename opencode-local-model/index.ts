@@ -1,1 +1,1 @@
-export { LocalModelPlugin } from "./plugin"
+export { default } from "./plugin"

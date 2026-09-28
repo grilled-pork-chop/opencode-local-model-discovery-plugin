@@ -1,51 +1,56 @@
-/** Minimal type for the OpenCode TUI client passed to plugins. */
-export interface OpenCodeClient {
-  tui?: {
-    showToast?(opts: {
-      body: { message: string; variant: string; duration: number }
-    }): Promise<void>
-  }
+/**
+ * @module types
+ *
+ * The parts of OpenCode V2's provider and model API this plugin touches.
+ *
+ * They mirror `Provider.Info`, `ModelEditor` and `Model.Info` from
+ * `@opencode/plugin` with plain strings instead of its branded ids, so the
+ * modules can be tested without an OpenCode host.
+ */
+
+/** Reasoning or request settings merged into a model or variant. */
+export type ModelSettings = Record<string, unknown>
+
+/** One selectable variant of a model, e.g. a reasoning effort level. */
+export interface ModelVariant {
+  id: string
+  settings?: ModelSettings
 }
-/** Single model entry in a provider `models` map. */
-export type ModelEntry = {
+
+/** The mutable model draft handed to `editor.update`. */
+export interface ModelDraft {
+  modelID: string
   name: string
-  limit: { id: string; name: string; limit: { context: number; output: number } }
-}
-
-/** Minimal shape of the OpenCode configuration object. */
-export interface OpenCodeConfig {
-  provider?: Record<
-    string,
-    {
-      npm?: string
-      name?: string
-      options?: Record<string, unknown>
-      models?: Record<string, ModelEntry>
-      [key: string]: unknown
-    }
-  >
-  [key: string]: unknown
-}
-
-/** Input provided by OpenCode when initializing the plugin. */
-export interface PluginInput {
-  client: OpenCodeClient
-  directory?: string
-  [key: string]: unknown
+  limit: { context: number }
+  settings?: ModelSettings
+  variants: ModelVariant[]
 }
 
 /**
- * Async callback invoked by OpenCode each time it loads its configuration.
- * Implementations must mutate `config` in place; the return value is ignored.
+ * The part of V2's `ModelEditor` (the `ctx.model.transform` input) used here.
+ *
+ * Model transforms run on the final provider list, config providers included,
+ * which provider transforms do not see yet. `update` creates a missing model
+ * from OpenCode's defaults; both writes are no-ops for an unavailable provider.
  */
-export type ConfigHook = (config: OpenCodeConfig) => Promise<void>
-
-/** The object a plugin must return from its factory function. */
-export interface PluginOutput {
-  config: ConfigHook
-  /** Called by OpenCode when the plugin is torn down. */
-  dispose?: () => Promise<void>
+export interface ModelEditorLike {
+  list(providerID?: string): readonly { readonly id: string }[]
+  update(providerID: string, modelID: string, update: (model: ModelDraft) => void): void
+  remove(providerID: string, modelID: string): void
+  readonly default: {
+    get(): { providerID: string; modelID: string } | undefined
+    set(providerID: string, modelID: string): void
+  }
 }
 
-/** Factory function signature for an OpenCode plugin. */
-export type Plugin = (input: PluginInput) => Promise<PluginOutput>
+/** A provider as listed by `ctx.provider.list()`, reduced to what the scanner reads. */
+export interface ProviderInfo {
+  readonly id: string
+  /** Display name, e.g. `"Local"`. */
+  readonly name?: string
+  readonly package: string
+  /** Set on OpenCode's own providers; absent on those declared in the config. */
+  readonly integrationID?: string
+  /** V1 `options` land here: `baseURL`, `apiKey`, ... */
+  readonly settings?: Readonly<Record<string, unknown>>
+}

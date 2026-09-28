@@ -1,3 +1,9 @@
+/**
+ * @module discovery/client
+ *
+ * Fetches and parses a provider's OpenAI-compatible `/v1/models` endpoint.
+ */
+
 import { AUTH_FAILURE_STATUS, FETCH_TIMEOUT_MS } from "../constants"
 
 /**
@@ -10,8 +16,6 @@ export interface DiscoveredModel {
   readonly name?: string
   /** Context window in tokens. */
   readonly context?: number
-  /** Maximum output tokens. */
-  readonly output?: number
 }
 
 /**
@@ -25,17 +29,6 @@ const CONTEXT_PATHS = [
   ["max_context_length"],
   ["context_window"],
   ["meta", "n_ctx_train"],
-] as const
-
-/**
- * Where servers report the output cap, in precedence order. Far less commonly
- * published than the context window, so the default usually wins.
- */
-const OUTPUT_PATHS = [
-  ["max_output_length"],
-  ["max_completion_tokens"],
-  ["max_output_tokens"],
-  ["top_provider", "max_completion_tokens"],
 ] as const
 
 /**
@@ -108,29 +101,26 @@ function parseModel(entry: unknown): DiscoveredModel | undefined {
 
   const name =
     typeof record.name === "string" && record.name.trim() ? record.name.trim() : undefined
+  const context = readContext(record)
   return {
     id,
     ...(name ? { name } : {}),
-    ...pickLimit("context", record, CONTEXT_PATHS),
-    ...pickLimit("output", record, OUTPUT_PATHS),
+    ...(context ? { context } : {}),
   }
 }
 
 /**
- * Returns the first positive integer found at any of `paths`, as a partial
- * object so an absent value leaves the key off entirely and the injector's
- * default applies.
+ * Returns the context window from the first of {@link CONTEXT_PATHS} holding a
+ * positive integer, or `undefined` when the server reports none.
+ *
+ * @param record - A single entry of the `/v1/models` `data` array.
  */
-function pickLimit(
-  key: "context" | "output",
-  record: Record<string, unknown>,
-  paths: readonly (readonly string[])[]
-): Partial<Record<"context" | "output", number>> {
-  for (const path of paths) {
+function readContext(record: Record<string, unknown>): number | undefined {
+  for (const path of CONTEXT_PATHS) {
     const value = positiveInteger(readPath(record, path))
-    if (value !== undefined) return { [key]: value }
+    if (value !== undefined) return value
   }
-  return {}
+  return undefined
 }
 
 /** Walks a dotted path through nested plain objects. */

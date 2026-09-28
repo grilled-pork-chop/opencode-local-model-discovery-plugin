@@ -1,63 +1,43 @@
 /**
  * @module auth/credentials
  *
- * Reads the credentials written by `opencode auth login`.
+ * Resolves the bearer token used to authenticate `/v1/models`.
  *
- * OpenCode deliberately exposes no read API for credentials. The server offers
- * only `auth.set` and `auth.remove`, and the `auth.loader` hook receives them
- * after every plugin `config` hook has already run, so reading `auth.json` is
- * the only way to authenticate discovery at config time.
+ * OpenCode V2 owns credentials: it imports the V1 `auth.json` into its own
+ * store and hands them to plugins through `ctx.integration.connection`, so the
+ * plugin no longer reads any file itself.
  *
- * Every failure mode degrades to "no credential", which surfaces as a 401 and a
- * toast telling the user to log in.
+ * Every failure mode degrades to "no credential", which surfaces as an
+ * authentication error in the log.
  */
 
-import { readFile } from "node:fs/promises"
-import { homedir } from "node:os"
-import { join } from "node:path"
-
-/** A single entry in OpenCode's `auth.json`. */
-type StoredAuth =
-  | { type: "api"; key: string; metadata?: Record<string, string> }
-  | { type: "oauth"; access: string; refresh: string; expires: number }
-  | { type: "wellknown"; key: string; token: string }
-
-/** Mirrors opencode's `Global.Path.data` (xdg-basedir, same on macOS/Windows). */
-function authFile(): string {
-  return join(
-    process.env.XDG_DATA_HOME || join(homedir(), ".local", "share"),
-    "opencode",
-    "auth.json"
-  )
-}
+import type { Plugin } from "@opencode/plugin"
+import type { ProviderEntry } from "../discovery/scanner"
 
 /**
- * Loads every stored credential. `OPENCODE_AUTH_CONTENT` takes precedence over
- * the file, matching OpenCode's own lookup order.
- */
-async function readAuth(): Promise<Record<string, StoredAuth>> {
-  const raw =
-    process.env.OPENCODE_AUTH_CONTENT ?? (await readFile(authFile(), "utf8").catch(() => ""))
-  if (!raw) return {}
-  try {
-    const parsed = JSON.parse(raw) as unknown
-    return parsed && typeof parsed === "object" ? (parsed as Record<string, StoredAuth>) : {}
-  } catch {
-    return {}
-  }
-}
-
-/**
- * Resolves the token `opencode auth login` stored for a provider.
+ * Resolves the credential for a provider.
  *
- * @param providerKey - Provider key from the opencode config. The credential is
- *                      stored under the same id the user typed at login.
+ * An explicitly configured `options.apiKey` wins. OpenCode resolves its
+ * `{env:VAR}` and `{file:path}` placeholders before plugins see the settings,
+ * so the value is always the real key. Otherwise the credential stored with
+ * `opencode auth login` under the provider's id is used.
+ *
+ * @param integration - `ctx.integration` from the plugin context.
+ * @param provider    - Provider to resolve a credential for.
  * @returns The token to send as `Authorization: Bearer`, or `undefined`.
  */
-export async function loadToken(providerKey: string): Promise<string | undefined> {
-  const entry = (await readAuth())[providerKey.replace(/\/+$/, "")]
-  if (entry?.type === "api") return entry.key || undefined
-  if (entry?.type === "oauth") return entry.access || undefined
-  if (entry?.type === "wellknown") return entry.token || undefined
+export async function resolveToken(
+  integration: Plugin.Context["integration"],
+  provider: ProviderEntry
+): Promise<string | undefined> {
+  if (provider.apiKey) return provider.apiKey
+  try {
+    const connection = await integration.connection.active(provider.key)
+    const credential = connection ? await integration.connection.resolve(connection) : undefined
+    if (credential?.type === "key") return credential.key || undefined
+    if (credential?.type === "oauth") return credential.access || undefined
+  } catch {
+    // A missing or unreadable credential must not block discovery.
+  }
   return undefined
 }

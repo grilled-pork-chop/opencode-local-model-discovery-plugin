@@ -1,24 +1,30 @@
 {
   "name": "opencode-local-model-discovery-plugin",
-  "version": "0.1.0",
-  "description": "OpenCode plugin that auto-discovers models from OpenAI-compatible local providers",
+  "version": "0.2.0",
+  "description": "OpenCode V2 plugin that auto-discovers and live-refreshes models from OpenAI-compatible providers",
   "type": "module",
   "license": "MIT",
-  "main": "opencode-local.ts",
+  "main": "opencode-local-model/index.ts",
   "exports": {
-    ".": "./opencode-local.ts"
+    ".": "./opencode-local-model/index.ts"
   },
-  "files": ["opencode-local.ts", "opencode-local-model"],
+  "files": ["opencode-local-model"],
   "scripts": {
     "lint": "biome check .",
     "format": "biome check --write .",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "bun test",
+    "mock": "bun scripts/mock-server.ts"
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",
-    "@opencode-ai/plugin": "^0.4.0",
+    "@opencode/plugin": "^2.0.18",
+    "@types/bun": "^1.4.2",
     "@types/node": "^22",
     "typescript": "^5.7.0"
   },
-  "trustedDependencies": ["@biomejs/biome"]
+  "trustedDependencies": ["@biomejs/biome"],
+  "engines": {
+    "opencode": ">=2.0.10"
+  }
 }
