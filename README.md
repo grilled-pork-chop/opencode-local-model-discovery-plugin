@@ -85,7 +85,7 @@ toasts, so the plugin reports to the OpenCode log instead
 `opencode serve --print-logs`):
 
 ```
-[local-model-discovery] Discovering models for provider(s): local
+[local-model-discovery] Discovering models for provider "local"
 [local-model-discovery] Discovered 2 model(s) for provider "local":
   • llama3 (128k ctx)
   • glm-5.3

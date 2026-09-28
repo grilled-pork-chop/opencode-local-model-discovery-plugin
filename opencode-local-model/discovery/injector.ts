@@ -1,3 +1,9 @@
+/**
+ * @module discovery/injector
+ *
+ * Writes discovered models into OpenCode's model registry.
+ */
+
 import { UNKNOWN_CONTEXT, simplifyModelId } from "../constants"
 import type { ModelDraft, ModelEditorLike } from "../types"
 import type { DiscoveredModel } from "./client"
@@ -33,10 +39,10 @@ export function applyDiscoveredModels(
  * Writes one discovered model into the draft OpenCode created for it.
  *
  * Limits come from the endpoint when the server publishes them, for example
- * vLLM's `max_model_len`. An unreported context falls back to
- * {@link UNKNOWN_CONTEXT}; an unreported output cap keeps OpenCode's default. The display name is the server's own
- * `name` when there is one, else the last path segment of the ID
- * (e.g. `"organization/llama3"` → `"llama3"`).
+ * vLLM's `max_model_len`. An unreported context is written as
+ * {@link UNKNOWN_CONTEXT}; an unreported output cap keeps OpenCode's default.
+ * The display name is the server's own `name` when there is one, else the last
+ * path segment of the ID (e.g. `"organization/llama3"` → `"llama3"`).
  *
  * @param draft - The model draft, pre-filled with OpenCode's defaults.
  * @param model - A model returned by {@link fetchModels}.

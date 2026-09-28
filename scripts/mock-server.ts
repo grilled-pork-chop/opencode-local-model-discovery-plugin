@@ -76,7 +76,8 @@ function completionStream(model: string): Response {
       usage: { prompt_tokens: 1, completion_tokens: 10, total_tokens: 11 },
     },
   ]
-  const body = `${events.map((event) => `data: ${JSON.stringify(event)}\n\n`).join("")}data: [DONE]\n\n`
+  const lines = [...events.map((event) => JSON.stringify(event)), "[DONE]"]
+  const body = lines.map((line) => `data: ${line}\n\n`).join("")
   return new Response(body, {
     headers: { "content-type": "text/event-stream", "cache-control": "no-cache" },
   })

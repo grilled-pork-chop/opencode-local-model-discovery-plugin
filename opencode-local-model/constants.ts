@@ -8,6 +8,9 @@
 /** Plugin id registered with OpenCode, also used as the log prefix. */
 export const PLUGIN_ID = "local-model-discovery"
 
+/** npm package identifier for the OpenAI-compatible AI SDK adapter, as users write it. */
+export const OPENAI_COMPATIBLE_NPM = "@ai-sdk/openai-compatible"
+
 /**
  * Substring identifying an OpenAI-compatible provider package. V2 reports a
  * V1 `npm: "@ai-sdk/openai-compatible"` provider as

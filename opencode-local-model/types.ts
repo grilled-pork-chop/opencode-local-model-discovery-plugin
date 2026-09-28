@@ -1,10 +1,11 @@
 /**
- * Structural views of the OpenCode V2 plugin API used by this plugin.
+ * @module types
  *
- * They mirror `ModelEditor` and `Model.Info` from `@opencode/plugin` but
- * only name the members this plugin touches, with plain strings instead of
- * branded ids, so the modules stay testable without an OpenCode host.
- * @module
+ * The parts of OpenCode V2's model API this plugin touches.
+ *
+ * They mirror `ModelEditor` and `Model.Info` from `@opencode/plugin` with plain
+ * strings instead of its branded ids, so the injector can be tested without an
+ * OpenCode host.
  */
 
 /** Reasoning or request settings merged into a model or variant. */
@@ -16,11 +17,11 @@ export interface ModelVariant {
   settings?: ModelSettings
 }
 
-/** The mutable model draft handed to `editor.models.update`. */
+/** The mutable model draft handed to `editor.update`. */
 export interface ModelDraft {
   modelID: string
   name: string
-  limit: { context: number; output: number; input?: number }
+  limit: { context: number; output: number }
   settings?: ModelSettings
   variants: ModelVariant[]
 }
@@ -40,4 +41,14 @@ export interface ModelEditorLike {
     get(): { providerID: string; modelID: string } | undefined
     set(providerID: string, modelID: string): void
   }
+}
+
+/** A provider as listed by `ctx.provider.list()`, reduced to what the scanner reads. */
+export interface ProviderInfo {
+  readonly id: string
+  readonly package: string
+  /** Set on OpenCode's own providers; absent on those declared in the config. */
+  readonly integrationID?: string
+  /** V1 `options` land here: `baseURL`, `apiKey`, ... */
+  readonly settings?: Readonly<Record<string, unknown>>
 }

@@ -5,17 +5,16 @@
  *
  * ### Lifecycle
  * 1. OpenCode calls `setup(ctx)` once per project it opens.
- * 2. `setup` registers a model transform. It is pure: it only copies the
- *    lists held by {@link ModelRefreshMonitor} into OpenCode's model registry,
- *    and OpenCode may replay it at any time. A model transform is used rather
- *    than a provider transform because providers declared in the config are
- *    not visible yet to a plugin's provider transform.
- * 3. It lists OpenCode's providers, tracks every OpenAI-compatible one
- *    declared in the config and starts polling. When a list changes the
- *    monitor reloads the registry, so the transform runs again and the model
- *    picker updates without a restart.
- * 4. On `provider.updated` and `config.updated` it re-scans the providers.
- * 5. The returned cleanup stops polling and the event subscription.
+ * 2. `setup` registers a model transform that copies the lists held by the
+ *    {@link ModelRefreshMonitor} into OpenCode's model registry. A model
+ *    transform is used because providers declared in the config are not yet
+ *    visible to a plugin's provider transform.
+ * 3. It tracks every OpenAI-compatible provider declared in the config and
+ *    polls them. When a list changes the monitor reloads the model registry,
+ *    so the transform runs again and the model picker updates without a
+ *    restart.
+ * 4. It re-scans the providers whenever the registry or the config changes.
+ * 5. The returned cleanup stops polling and watching.
  *
  * Only types are imported from `@opencode/plugin`: the plugin is installed by
  * copying this folder, with no `node_modules`, and the default export is the
@@ -24,7 +23,7 @@
 
 import type { Plugin } from "@opencode/plugin"
 import { resolveToken } from "./auth/credentials"
-import { OPENAI_COMPATIBLE_PACKAGE, PLUGIN_ID } from "./constants"
+import { OPENAI_COMPATIBLE_NPM, PLUGIN_ID } from "./constants"
 import { applyDiscoveredModels } from "./discovery/injector"
 import { extractCompatibleProviders } from "./discovery/scanner"
 import { log } from "./logger"
@@ -32,85 +31,99 @@ import { ModelRefreshMonitor } from "./monitoring/refresh-monitor"
 import type { ModelEditorLike } from "./types"
 
 async function setup(ctx: Plugin.Context): Promise<Plugin.Cleanup> {
-  // Re-runs the model transform so it picks up the monitor's current lists.
-  const reloadRegistry = () => ctx.model.reload()
-
-  const monitor = new ModelRefreshMonitor(reloadRegistry)
+  const monitor = new ModelRefreshMonitor(() => ctx.model.reload())
 
   await ctx.model.transform((editor) => {
-    // V2 types ids as branded strings, which its DeepMutable helper widens into
-    // object types; at runtime they are plain strings, as ModelEditorLike says.
-    const draft = editor as unknown as ModelEditorLike
-    for (const [key, models] of monitor.discovered()) applyDiscoveredModels(draft, key, models)
-    if (draft.default.get()) return
-    const first = monitor.firstModel()
-    if (first) draft.default.set(first.providerID, first.modelID)
+    // OpenCode types ids as branded strings; at runtime they are plain strings.
+    injectModels(editor as unknown as ModelEditorLike, monitor)
   })
 
-  let lastScan: string | undefined
-  let scans = 0
-  /** Re-reads OpenCode's providers, tracks the compatible ones, logs any change. */
-  const sync = async () => {
-    const scan = extractCompatibleProviders(await ctx.provider.list())
-    const tracked = await Promise.all(
-      scan.providers.map(async (provider) => ({
-        provider,
-        token: await resolveToken(ctx.integration, provider),
-      }))
-    )
-    const result = monitor.track(tracked)
-
-    const summary = JSON.stringify([monitor.keys(), scan.skipped])
-    const scanChanged = summary !== lastScan
-    if (scanChanged) {
-      for (const key of scan.skipped) {
-        log.info(`Provider "${key}" is discovered by OpenCode itself, skipping it`)
-      }
-      if (scan.providers.length > 0) {
-        log.info(`Discovering models for provider(s): ${monitor.keys().join(", ")}`)
-      }
-    }
-    // Config providers can register after setup, so the first scan may be
-    // incomplete: warn about an empty result from the second scan on.
-    if (scan.providers.length === 0 && (scanChanged ? scans > 0 : scans === 1)) {
-      log.warning(`No '${OPENAI_COMPATIBLE_PACKAGE}' provider with a baseURL found in config`)
-    }
-    lastScan = summary
-    scans++
-    return result
-  }
-
-  await sync()
   // Discovery runs in the background so a slow server never delays startup.
-  void monitor.refreshAll()
+  syncProviders(ctx, monitor).catch((error) => log.error(`Discovery failed: ${error}`))
   monitor.start()
 
-  // Config providers register after setup and the config can change later, so
-  // re-scan whenever the registry changes. Reloads made by this plugin come
-  // back here too, but they leave the tracked set unchanged and stop.
   const abort = new AbortController()
-  void (async () => {
-    try {
-      for await (const event of ctx.event.subscribe({ signal: abort.signal })) {
-        if (event.type === "config.updated") {
-          // Reload first so the provider list reflects the new config.
-          await ctx.provider.reload()
-        } else if (event.type !== "provider.updated") {
-          continue
-        }
-        const { changed, dropped } = await sync()
-        if (!changed) continue
-        const refreshed = await monitor.refreshAll()
-        if (dropped && !refreshed) await reloadRegistry()
-      }
-    } catch (error) {
-      if (!abort.signal.aborted) log.warning(`Provider watch stopped: ${String(error)}`)
-    }
-  })()
+  void watchProviders(ctx, monitor, abort.signal)
 
   return () => {
     abort.abort()
     monitor.cleanup()
+  }
+}
+
+/**
+ * The model transform: writes every discovered list into the registry and,
+ * when the user configured no default model, selects the first discovered one.
+ *
+ * OpenCode may replay it at any time, so it only reads the monitor's state.
+ *
+ * @param editor  - The model editor handed to the transform.
+ * @param monitor - Holds the discovered lists.
+ */
+function injectModels(editor: ModelEditorLike, monitor: ModelRefreshMonitor): void {
+  for (const [key, models] of monitor.discovered()) applyDiscoveredModels(editor, key, models)
+
+  const first = monitor.firstModel()
+  if (first && !editor.default.get()) editor.default.set(first.key, first.id)
+}
+
+/**
+ * Reads OpenCode's providers, tracks the compatible ones, and fetches the
+ * models of every provider that just started being tracked.
+ *
+ * @param ctx     - The plugin context.
+ * @param monitor - Tracks and polls the providers.
+ * @returns How many providers are tracked.
+ */
+async function syncProviders(ctx: Plugin.Context, monitor: ModelRefreshMonitor): Promise<number> {
+  const providers = extractCompatibleProviders((await ctx.provider.list()).data)
+  const tracked = await Promise.all(
+    providers.map(async (provider) => ({
+      provider,
+      token: await resolveToken(ctx.integration, provider),
+    }))
+  )
+
+  const { added, removed } = await monitor.track(tracked)
+  for (const key of added) log.info(`Discovering models for provider "${key}"`)
+  for (const key of removed) log.info(`Stopped discovering models for provider "${key}"`)
+
+  await monitor.poll(added)
+  return providers.length
+}
+
+/**
+ * Re-syncs the providers whenever OpenCode's provider registry or config
+ * changes, until `signal` aborts.
+ *
+ * Providers declared in the config register a moment after `setup`, so the
+ * first sync may find none. The "no provider" warning is therefore given here,
+ * once, when a registry change still leaves none.
+ *
+ * @param ctx     - The plugin context.
+ * @param monitor - Tracks and polls the providers.
+ * @param signal  - Stops watching when aborted.
+ */
+async function watchProviders(
+  ctx: Plugin.Context,
+  monitor: ModelRefreshMonitor,
+  signal: AbortSignal
+): Promise<void> {
+  let warned = false
+  try {
+    for await (const event of ctx.event.subscribe({ signal })) {
+      if (event.type !== "provider.updated" && event.type !== "config.updated") continue
+      // Reload first so the provider list reflects the new config.
+      if (event.type === "config.updated") await ctx.provider.reload()
+
+      const count = await syncProviders(ctx, monitor)
+      if (count === 0 && !warned) {
+        log.warning(`No '${OPENAI_COMPATIBLE_NPM}' provider with a baseURL found in config`)
+      }
+      warned = count === 0
+    }
+  } catch (error) {
+    if (!signal.aborted) log.warning(`Stopped watching providers: ${error}`)
   }
 }
 

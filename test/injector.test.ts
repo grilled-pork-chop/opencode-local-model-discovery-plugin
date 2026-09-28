@@ -3,7 +3,7 @@ import { applyDiscoveredModels } from "../opencode-local-model/discovery/injecto
 import { fakeEditor } from "./fakes"
 
 describe("applyDiscoveredModels", () => {
-  test("writes names and reported limits; unknown context is 0, unknown output keeps the default", () => {
+  test("writes names and limits; unknown context is 0, unknown output keeps the default", () => {
     const { editor, models } = fakeEditor("local")
     applyDiscoveredModels(editor, "local", [
       { id: "org/llama3", context: 131072 },

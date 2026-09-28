@@ -42,16 +42,3 @@ function draft(id: string, overrides: Partial<ModelDraft> = {}): ModelDraft {
     ...overrides,
   }
 }
-
-/** A logger that records messages per level instead of printing them. */
-export function fakeLogger() {
-  const lines: { level: "info" | "warning" | "error"; message: string }[] = []
-  return {
-    lines,
-    logger: {
-      info: (message: string) => void lines.push({ level: "info", message }),
-      warning: (message: string) => void lines.push({ level: "warning", message }),
-      error: (message: string) => void lines.push({ level: "error", message }),
-    },
-  }
-}

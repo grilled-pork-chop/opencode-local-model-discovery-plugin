@@ -1,4 +1,11 @@
+/**
+ * @module discovery/scanner
+ *
+ * Finds the providers this plugin discovers models for.
+ */
+
 import { BUILTIN_DISCOVERY_PROVIDERS, OPENAI_COMPATIBLE_PACKAGE } from "../constants"
+import type { ProviderInfo } from "../types"
 import { normalizeBaseUrl } from "./client"
 
 /**
@@ -17,71 +24,34 @@ export interface ProviderEntry {
   readonly apiKey?: string
 }
 
-/** Result of {@link extractCompatibleProviders}. */
-export interface ScanResult {
-  readonly providers: ProviderEntry[]
-  /** Compatible providers left to OpenCode's built-in discovery. */
-  readonly skipped: string[]
-}
-
 /**
- * Scans the output of `ctx.provider.list()` and returns every provider declared
- * in the user's config whose package is OpenAI-compatible and that has a
- * `settings.baseURL` string.
+ * Returns every provider declared in the user's config whose package is
+ * OpenAI-compatible and that has a `baseURL`.
  *
  * V2 migrates a V1 provider's `npm` into `package` and its `options` into
- * `settings`, so a V1 config entry is picked up unchanged.
+ * `settings`, so a V1 config entry is picked up unchanged. Skipped:
+ * - OpenCode's own providers (its models.dev catalog, `opencode`,
+ *   `github-copilot`, ...), which can use the same package but carry an
+ *   `integrationID` and a curated model list;
+ * - `ollama`, `lmstudio` and `vllm`, whose models OpenCode discovers itself.
  *
- * OpenCode's own providers (its models.dev catalog, `opencode`,
- * `github-copilot`, ...) can use the same package, but they carry an
- * `integrationID` and a curated model list, so they are left alone. A provider
- * declared in the config has none.
- *
- * Never throws: a missing or malformed listing yields no providers.
- *
- * @param listed - `ctx.provider.list()` output: `{ data: [...] }` or a bare array.
+ * @param providers - The `data` of `ctx.provider.list()`.
+ * @returns Zero or more {@link ProviderEntry} objects, one per compatible provider.
  */
-export function extractCompatibleProviders(listed: unknown): ScanResult {
-  const providers: ProviderEntry[] = []
-  const skipped: string[] = []
+export function extractCompatibleProviders(providers: readonly ProviderInfo[]): ProviderEntry[] {
+  return providers.flatMap((provider) => {
+    if (!provider.package.includes(OPENAI_COMPATIBLE_PACKAGE)) return []
+    if (provider.integrationID !== undefined) return []
+    if (BUILTIN_DISCOVERY_PROVIDERS.has(provider.id)) return []
 
-  for (const info of providerInfos(listed)) {
-    const key = info.id
-    if (typeof key !== "string" || !key) continue
-    if (typeof info.package !== "string" || !info.package.includes(OPENAI_COMPATIBLE_PACKAGE)) {
-      continue
-    }
-    const settings = isRecord(info.settings) ? info.settings : {}
-    const baseURL = settings.baseURL
-    if (typeof baseURL !== "string" || !baseURL) continue
-    if (BUILTIN_DISCOVERY_PROVIDERS.has(key)) {
-      skipped.push(key)
-      continue
-    }
-    if (info.integrationID !== undefined) continue
-
-    const apiKey =
-      typeof settings.apiKey === "string" && settings.apiKey ? settings.apiKey : undefined
-    providers.push({
-      key,
-      baseUrl: normalizeBaseUrl(baseURL),
-      ...(apiKey ? { apiKey } : {}),
-    })
-  }
-
-  return { providers, skipped }
-}
-
-/** Unwraps the provider list, accepting `{ data }` and bare-array shapes. */
-function providerInfos(listed: unknown): Record<string, unknown>[] {
-  const entries = Array.isArray(listed)
-    ? listed
-    : isRecord(listed) && Array.isArray(listed.data)
-      ? listed.data
-      : []
-  return entries.filter(isRecord)
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return !!value && typeof value === "object" && !Array.isArray(value)
+    const { baseURL, apiKey } = provider.settings ?? {}
+    if (typeof baseURL !== "string" || !baseURL) return []
+    return [
+      {
+        key: provider.id,
+        baseUrl: normalizeBaseUrl(baseURL),
+        ...(typeof apiKey === "string" && apiKey ? { apiKey } : {}),
+      },
+    ]
+  })
 }
