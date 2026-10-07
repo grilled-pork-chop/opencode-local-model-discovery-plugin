@@ -19,7 +19,26 @@ interface KnownModel {
 
 const KNOWN_MODELS: readonly KnownModel[] = [
   {
-    // glm-5.3, GLM_5_3, z-ai/glm-5.3-flash, ...
+    // glm-5.3-flash, GLM_5_3_Flash, z-ai/glm-5.3-flashx, ...
+    // Natively multimodal: accepts images alongside text.
+    match: /glm[\s._-]?5[\s._-]?3[\s._-]?flash/i,
+    config: {
+      reasoning: true,
+      options: { reasoningEffort: "max" },
+      variants: {
+        low: { reasoningEffort: "low" },
+        high: { reasoningEffort: "high" },
+        max: { reasoningEffort: "max" },
+      },
+      attachment: true,
+      modalities: {
+        input: ["text", "image"],
+        output: ["text"],
+      },
+    },
+  },
+  {
+    // glm-5.3, GLM_5_3, z-ai/glm-5.3, ... (text-only)
     match: /glm[\s._-]?5[\s._-]?3/i,
     config: {
       reasoning: true,
