@@ -88,14 +88,23 @@ the two.
 
 ## Known models
 
-`/v1/models` never reports whether a model reasons or which effort levels it
-accepts, so that is kept as a static table in
+`/v1/models` never reports whether a model reasons, which effort levels it
+accepts, or whether it takes images, so that is kept as a static table in
 `opencode-local-model/discovery/known-models.ts`, matched against the model id
 case-insensitively. A matching model gets the entry's config merged into its
 discovered one:
 
 ```ts
 const KNOWN_MODELS: readonly KnownModel[] = [
+  {
+    match: /glm[\s._-]?5[\s._-]?3[\s._-]?flash/i,
+    config: {
+      reasoning: true,
+      // options and variants as below
+      attachment: true,
+      modalities: { input: ["text", "image"], output: ["text"] },
+    },
+  },
   {
     match: /glm[\s._-]?5[\s._-]?3/i,
     config: {
@@ -111,9 +120,32 @@ const KNOWN_MODELS: readonly KnownModel[] = [
 ]
 ```
 
-So `z-ai/glm-5.3`, `GLM-5.3-FLASH` and `glm_5_3` all pick it up, while `glm-5.2`
-and `glm-4.6` do not. Add an entry to support another model; the first match
-wins, so put more specific patterns first.
+So `z-ai/glm-5.3-flash` and `GLM_5_3_Flash` get image input, `z-ai/glm-5.3` and
+`glm_5_3` stay text-only, and `glm-5.2` and `glm-4.6` match neither. The first
+match wins, so put more specific patterns first.
+
+### Your own known models
+
+To add models without touching the plugin, create
+`~/.config/opencode/known-models.json` (`$XDG_CONFIG_HOME/opencode/` when set)
+with entries of the same shape, `match` being a regex string:
+
+```json
+[
+  {
+    "match": "qwen[\\s._-]?3[\\s._-]?vl",
+    "config": {
+      "attachment": true,
+      "modalities": { "input": ["text", "image"], "output": ["text"] }
+    }
+  }
+]
+```
+
+The file is read at startup and on every config reload. Its entries are
+appended after the built-in ones, so a built-in entry wins when both match the
+same id. If the file is malformed, a warning toast says why and none of its
+entries are used.
 
 ## Authenticated servers
 
