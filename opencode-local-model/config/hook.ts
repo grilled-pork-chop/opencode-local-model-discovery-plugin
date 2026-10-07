@@ -3,6 +3,7 @@ import { OPENAI_COMPATIBLE_NPM, simplifyModelId } from "../constants"
 import type { DiscoveredModel } from "../discovery/client"
 import { fetchModels } from "../discovery/client"
 import { applyDiscoveredModels } from "../discovery/injector"
+import { loadUserKnownModels } from "../discovery/known-models"
 import { extractCompatibleProviders } from "../discovery/scanner"
 import type { ModelRefreshMonitor } from "../monitoring/refresh-monitor"
 import type { Notifier } from "../notification/notifier"
@@ -11,7 +12,8 @@ import type { ConfigHook, OpenCodeConfig } from "../types"
 /**
  * Builds the {@link ConfigHook} called by OpenCode once at startup.
  *
- * For each `@ai-sdk/openai-compatible` provider found in the config:
+ * Loads the user's `known-models.json` first, warning when it is malformed.
+ * Then, for each `@ai-sdk/openai-compatible` provider found in the config:
  * - Resolves a credential from `options.apiKey`, falling back to whatever
  *   `opencode auth login` stored under the provider's id
  * - Fetches available models from `/v1/models`, authenticated when there is one
@@ -27,6 +29,13 @@ export function buildConfigHook(notifier: Notifier, monitor: ModelRefreshMonitor
     if (providers.length === 0) {
       notifier.warning(`No '${OPENAI_COMPATIBLE_NPM}' provider found in config`)
       return
+    }
+
+    try {
+      await loadUserKnownModels()
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error)
+      notifier.warning(`Ignoring user known models: ${msg}`)
     }
 
     await Promise.all(
